@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Loading...</title>
+  <script>
+    // 提前初始化默认配置，防止 env.js 加载失败导致白屏
+    window.routerBase = window.routerBase || '/'
+    window.settings = window.settings || {
+      title: 'Stellar',
+      description: 'Stellar Panel',
+      assets_path: '/assets',
+      theme: { color: 'default' },
+      version: '1.0.0',
+      background_url: '',
+      logo: '',
+      landing_theme_mode: 'dark',
+      telegram_group: '',
+      api_error_contact: '',
+      api: {
+        url_mode: 'auto',
+        static_base_urls: [],
+        auto: { use_same_protocol: true, host: '', append_path: '' },
+        check_enabled: false,
+        check_path: '/api/v1/guest/comm/config',
+        proxy_enabled: false,
+        proxy_url: '',
+        proxy_path: '/api-proxy',
+        proxy_mode: 'base64Path'
+      }
+    }
+    document.title = window.settings.title || 'Stellar'
+  </script>
+  <script src="./env.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
