@@ -22,6 +22,8 @@ interface Window {
     landing_page_enabled?: boolean
     telegram_group?: string
     api_error_contact?: string
+    header_code?: string
+    footer_code?: string
     api?: import('@/utils/apiConfig').ApiRuntimeConfig
     i18n?: string[]
     client_downloads?: {

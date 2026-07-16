@@ -8,6 +8,8 @@ const defaultSettings = {
   version: '1.0.0',
   background_url: '',
   logo: '',
+  header_code: '',
+  footer_code: '',
   landing_theme_mode: 'dark' as const,
   landing_page_enabled: true,
   telegram_group: '',

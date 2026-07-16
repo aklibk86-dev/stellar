@@ -5,6 +5,8 @@
         <n-dialog-provider>
           <n-notification-provider>
             <AppContent />
+            <!-- 页头页脚自定义代码注入 -->
+            <CodeInjector />
           </n-notification-provider>
         </n-dialog-provider>
       </n-message-provider>
@@ -23,6 +25,7 @@ import {
 import { useAppStore } from '@/stores/app'
 import i18n from '@/i18n'
 import AppContent from './AppContent.vue'
+import CodeInjector from './components/CodeInjector.vue'
 
 const appStore = useAppStore()
 
