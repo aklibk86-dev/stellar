@@ -132,7 +132,7 @@
               </span>
             </div>
           </div>
-          <div class="prose" v-html="sanitizeHtml(selectedDoc.body)"></div>
+          <div class="prose" v-html="renderContent(selectedDoc.body)"></div>
         </template>
         <n-empty
           v-else
@@ -151,7 +151,7 @@ import { useMessage, NInput, NEmpty, NTag } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Knowledge, KnowledgeCategory } from '@/api/types'
 import { formatDate } from '@/utils/format'
-import { sanitizeHtml } from '@/utils/safe'
+import { renderContent } from '@/utils/safe'
 
 const { t, locale } = useI18n()
 const message = useMessage()

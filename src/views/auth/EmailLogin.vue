@@ -109,7 +109,9 @@ const userStore = useUserStore()
 const title = computed(() => appStore.title)
 const logo = computed(() => appStore.logo)
 const description = computed(() => appStore.description)
-const backgroundUrl = computed(() => appStore.backgroundUrl)
+// 向后兼容：当新的全站背景（background）启用时，由全局组件统一渲染，
+// 此处不再重复渲染 auth 专属背景；仅在新背景未启用且旧 background_url 有值时保留原行为。
+const backgroundUrl = computed(() => (appStore.backgroundEnabled ? '' : appStore.backgroundUrl))
 
 const step = ref(1)
 const emailFormRef = ref<FormInst | null>(null)

@@ -1,4 +1,8 @@
 <template>
+  <!-- 全站背景（图片/视频），固定铺满视口；放在所有内容之前，z-index: 0
+       落地页除外：落地页有独立背景与样式，不受全局背景图设置影响 -->
+  <GlobalBackground v-if="!isLandingRoute" />
+  <!-- 内容层：通过 #app 的 z-index: 1 保持在背景之上 -->
   <n-config-provider :theme="theme" :theme-overrides="themeOverrides" :locale="naiveLocale" :date-locale="naiveDateLocale">
     <n-loading-bar-provider>
       <n-message-provider>
@@ -16,6 +20,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   NConfigProvider, NLoadingBarProvider, NMessageProvider,
   NDialogProvider, NNotificationProvider,
@@ -26,8 +31,18 @@ import { useAppStore } from '@/stores/app'
 import i18n from '@/i18n'
 import AppContent from './AppContent.vue'
 import CodeInjector from './components/CodeInjector.vue'
+import GlobalBackground from './components/GlobalBackground.vue'
 
 const appStore = useAppStore()
+const route = useRoute()
+
+// 落地页：跳过全局背景组件渲染，并在 <html> 上加 stellar-route-landing 类
+// 供 main.css 中的覆盖样式使用，让落地页彻底脱离全局背景图与毛玻璃设置
+const isLandingRoute = computed(() => route.name === 'landing')
+watch(isLandingRoute, (v) => {
+  const root = document.documentElement
+  root.classList.toggle('stellar-route-landing', v)
+}, { immediate: true })
 
 const theme = computed(() => (appStore.isDark ? darkTheme : null))
 
@@ -62,3 +77,11 @@ watch(() => appStore.locale, (newLocale) => {
   i18n.global.locale.value = newLocale as 'zh-CN' | 'en-US'
 })
 </script>
+
+<style>
+/* #app 作为内容根容器，在背景启用时保持高于背景的层叠层级 */
+#app {
+  position: relative;
+  z-index: 1;
+}
+</style>

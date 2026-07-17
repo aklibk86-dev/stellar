@@ -10,7 +10,9 @@
   --stellar-bg-active: #eff6ff;
   --stellar-text: #1a1a2e;
   --stellar-text-secondary: #6b7280;
-  --stellar-text-muted: #9ca3af;
+  /* 调深 muted：原 #9ca3af 在毛玻璃半透明卡片上对比度仅 ~1.4:1，看不清；
+     调到 #6b7280 与 secondary 同色，保证浅色模式 + 毛玻璃背景下 WCAG AA 可读 */
+  --stellar-text-muted: #6b7280;
   --stellar-border: #e5e7eb;
   --stellar-border-light: #f0f0f5;
   --stellar-primary: #3b82f6;
@@ -19,6 +21,15 @@
   --stellar-success: #10b981;
   --stellar-warning: #f59e0b;
   --stellar-danger: #ef4444;
+
+  /* 毛玻璃（Glassmorphism）默认变量 —— 由 appStore.applyGlassmorphism() 动态覆盖 */
+  --stellar-glass-blur: 12px;
+  --stellar-glass-opacity: 0.65;
+  --stellar-glass-radius: 12px;
+  --stellar-glass-border-color: rgba(255, 255, 255, 0.18);
+  --stellar-glass-border-width: 1px;
+  --stellar-glass-border-style: solid;
+  --stellar-glass-border-light: 0;
 }
 
 html.dark {
@@ -38,6 +49,9 @@ html.dark {
   --stellar-success: #10b981;
   --stellar-warning: #f59e0b;
   --stellar-danger: #ef4444;
+
+  /* 深色模式下毛玻璃默认边框色更柔和 */
+  --stellar-glass-border-color: rgba(255, 255, 255, 0.1);
 }
 
 * {
@@ -53,6 +67,80 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 全站背景启用时：移除各层实色背景，露出底层固定背景层 */
+html.stellar-bg-on:not(.stellar-route-landing) body,
+html.stellar-bg-on:not(.stellar-route-landing) #app {
+  background: transparent !important;
+}
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-layout,
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-main,
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-content,
+html.stellar-bg-on:not(.stellar-route-landing) .auth-page,
+/* 落地页/API 检测页/404 页根容器：本身有实色 background，需在此放行，否则壁纸被完全遮住 */
+html.stellar-bg-on:not(.stellar-route-landing) .landing-page,
+html.stellar-bg-on:not(.stellar-route-landing) .api-loading-page,
+html.stellar-bg-on:not(.stellar-route-landing) .not-found {
+  background: transparent !important;
+}
+/* 侧边栏与顶栏保留半透明，配合毛玻璃效果 */
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-sidebar,
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-header {
+  /* 实色兜底（不支持 color-mix 的浏览器），color-mix 支持时被下一行覆盖 */
+  background-color: var(--stellar-bg-sidebar) !important;
+  background-color: color-mix(in srgb, var(--stellar-bg-sidebar) calc(var(--stellar-glass-opacity, 0.65) * 100%), transparent) !important;
+  -webkit-backdrop-filter: blur(var(--stellar-glass-blur, 12px));
+  backdrop-filter: blur(var(--stellar-glass-blur, 12px));
+}
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-header {
+  /* 实色兜底（不支持 color-mix 的浏览器），color-mix 支持时被下一行覆盖 */
+  background-color: var(--stellar-bg-card) !important;
+  background-color: color-mix(in srgb, var(--stellar-bg-card) calc(var(--stellar-glass-opacity, 0.65) * 100%), transparent) !important;
+}
+/* auth 页面遮罩层透明，由全局背景遮罩接管 */
+html.stellar-bg-on:not(.stellar-route-landing) .auth-overlay {
+  background: transparent !important;
+}
+
+/* 浅色模式 + 毛玻璃开启：强制提高卡片不透明度
+   原因：浅色壁纸（或深色壁纸亮区）上，半透明白色卡片会与壁纸混合成中灰色，
+   导致 var(--stellar-text-muted) 等次要文字对比度不足。
+   浅色模式下让卡片背景更"实"（≥88%），保证文字可读性。
+   用户在 appStore 中设置的 --stellar-glass-opacity 通过 inline style 写入，
+   优先级最高，CSS 无法直接覆盖变量，因此在此直接覆盖最终 background-color。 */
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .stellar-glass,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .stellar-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .stat-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .content-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .auth-container,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .page-header,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .plan-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .server-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .section-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .chart-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .log-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .service-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .orders-table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .order-card,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .stat-chip,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .doc-item,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .category-item,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .doc-list,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .doc-content,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .ticket-list-panel,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .ticket-detail-panel,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .ticket-item,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .client-item,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .notice-list-item {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+}
+/* 浅色模式 + 壁纸开启：侧边栏与顶栏同样提高不透明度 */
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark).stellar-bg-on .stellar-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark).stellar-bg-on .stellar-header {
+  background-color: rgba(255, 255, 255, 0.88) !important;
 }
 
 html, body, #app {
@@ -113,4 +201,190 @@ a {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ============================================================
+   全局毛玻璃（Glassmorphism）卡片效果
+   ------------------------------------------------------------
+   启用方式：在 env.js 中设置 glassmorphism.enabled = true
+   appStore.applyGlassmorphism() 会在 <html> 上添加 .stellar-glass-on
+   并写入 CSS 变量，以下规则据此为所有卡片应用 backdrop-filter 效果。
+
+   覆盖范围：
+   - 显式带 .stellar-glass / .stellar-card 类的元素
+   - 各视图中的卡片类（.stat-card / .content-card / .plan-card /
+     .server-card / .section-card / .chart-card / .table-wrapper 等）
+   ============================================================ */
+
+/* 毛玻璃核心 mixin（通过类复用）——占位规则，由下方 html.stellar-glass-on:not(.stellar-route-landing) 选择器覆盖 */
+.stellar-glass,
+.stellar-card {
+  /* 未启用时保持原有实色背景，启用时由下方规则覆盖 */
+}
+
+/* 启用毛玻璃：为所有卡片类应用 backdrop-filter + 半透明背景 + 边框 */
+html.stellar-glass-on:not(.stellar-route-landing) .page-header,
+html.stellar-glass-on:not(.stellar-route-landing) .stellar-glass,
+html.stellar-glass-on:not(.stellar-route-landing) .stellar-card,
+html.stellar-glass-on:not(.stellar-route-landing) .stat-card,
+html.stellar-glass-on:not(.stellar-route-landing) .content-card,
+html.stellar-glass-on:not(.stellar-route-landing) .plan-card,
+html.stellar-glass-on:not(.stellar-route-landing) .server-card,
+html.stellar-glass-on:not(.stellar-route-landing) .section-card,
+html.stellar-glass-on:not(.stellar-route-landing) .chart-card,
+html.stellar-glass-on:not(.stellar-route-landing) .table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing) .log-card,
+html.stellar-glass-on:not(.stellar-route-landing) .service-card,
+html.stellar-glass-on:not(.stellar-route-landing) .tips-bar .tip-item,
+html.stellar-glass-on:not(.stellar-route-landing) .toolbar .filter-group,
+html.stellar-glass-on:not(.stellar-route-landing) .skeleton-card,
+html.stellar-glass-on:not(.stellar-route-landing) .notice-list-item,
+html.stellar-glass-on:not(.stellar-route-landing) .doc-item,
+html.stellar-glass-on:not(.stellar-route-landing) .category-item,
+html.stellar-glass-on:not(.stellar-route-landing) .client-item,
+html.stellar-glass-on:not(.stellar-route-landing) .auth-container,
+/* 文档中心 */
+html.stellar-glass-on:not(.stellar-route-landing) .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing) .doc-list,
+html.stellar-glass-on:not(.stellar-route-landing) .doc-content,
+/* 工单系统 */
+html.stellar-glass-on:not(.stellar-route-landing) .ticket-list-panel,
+html.stellar-glass-on:not(.stellar-route-landing) .ticket-detail-panel,
+html.stellar-glass-on:not(.stellar-route-landing) .ticket-item,
+/* 订单中心 */
+html.stellar-glass-on:not(.stellar-route-landing) .orders-table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing) .order-card,
+html.stellar-glass-on:not(.stellar-route-landing) .stat-chip {
+  /* 背景模糊：backdrop-filter 让卡片后方内容产生毛玻璃质感 */
+  -webkit-backdrop-filter: blur(var(--stellar-glass-blur));
+  backdrop-filter: blur(var(--stellar-glass-blur));
+  /* 半透明背景：在模糊层之上叠加半透明色，值越小越通透 */
+  /* 实色兜底（不支持 color-mix 的浏览器使用），color-mix 支持时被下一行覆盖 */
+  background-color: var(--stellar-bg-card);
+  background-color: color-mix(in srgb, var(--stellar-bg-card) calc(var(--stellar-glass-opacity) * 100%), transparent);
+  /* 圆角 */
+  border-radius: var(--stellar-glass-radius);
+  /* 边框：solid / none 由变量控制；light 样式单独处理 */
+  border-style: var(--stellar-glass-border-style);
+  border-color: var(--stellar-glass-border-color);
+  border-width: var(--stellar-glass-border-width);
+  /* 轻微高光，增强玻璃质感 */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 页面标题容器：卡片式背景让标题区域更清晰 */
+html.stellar-glass-on:not(.stellar-route-landing) .page-header {
+  padding: 16px 20px;
+}
+html.stellar-glass-on:not(.stellar-route-landing) .header-text {
+  background: transparent !important;
+}
+html.stellar-glass-on:not(.stellar-route-landing) .page-title,
+html.stellar-glass-on:not(.stellar-route-landing) .page-sub {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* light 边框样式：使用更细的半透明线，营造轻盈玻璃感 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .page-header,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .stellar-glass,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .stellar-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .stat-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .content-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .plan-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .server-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .section-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .chart-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .log-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .service-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .tips-bar .tip-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .toolbar .filter-group,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .skeleton-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .notice-list-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .doc-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .category-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .client-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .auth-container,
+/* 文档中心 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .doc-list,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .doc-content,
+/* 工单系统 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .ticket-list-panel,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .ticket-detail-panel,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .ticket-item,
+/* 订单中心 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .orders-table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .order-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .stat-chip {
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--stellar-glass-border-color);
+}
+
+/* none 边框样式：移除边框 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .page-header,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .stellar-glass,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .stellar-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .stat-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .content-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .plan-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .server-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .section-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .chart-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .log-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .service-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .tips-bar .tip-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .toolbar .filter-group,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .skeleton-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .notice-list-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .doc-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .category-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .client-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .auth-container,
+/* 文档中心 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .doc-list,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .doc-content,
+/* 工单系统 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .ticket-list-panel,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .ticket-detail-panel,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .ticket-item,
+/* 订单中心 */
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .orders-table-wrapper,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .order-card,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .stat-chip {
+  border: none;
+}
+
+/* 不支持 backdrop-filter 的浏览器降级：使用实色背景 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.stellar-glass-on:not(.stellar-route-landing) .page-header,
+  html.stellar-glass-on:not(.stellar-route-landing) .stellar-glass,
+  html.stellar-glass-on:not(.stellar-route-landing) .stellar-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .stat-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .content-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .plan-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .server-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .section-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .chart-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .table-wrapper,
+  html.stellar-glass-on:not(.stellar-route-landing) .log-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .service-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .auth-container,
+  /* 文档中心 */
+  html.stellar-glass-on:not(.stellar-route-landing) .category-sidebar,
+  html.stellar-glass-on:not(.stellar-route-landing) .doc-list,
+  html.stellar-glass-on:not(.stellar-route-landing) .doc-content,
+  /* 工单系统 */
+  html.stellar-glass-on:not(.stellar-route-landing) .ticket-list-panel,
+  html.stellar-glass-on:not(.stellar-route-landing) .ticket-detail-panel,
+  html.stellar-glass-on:not(.stellar-route-landing) .ticket-item,
+  /* 订单中心 */
+  html.stellar-glass-on:not(.stellar-route-landing) .orders-table-wrapper,
+  html.stellar-glass-on:not(.stellar-route-landing) .order-card,
+  html.stellar-glass-on:not(.stellar-route-landing) .stat-chip {
+      background-color: var(--stellar-bg-card);
+    }
 }

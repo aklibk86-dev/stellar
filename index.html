@@ -30,6 +30,26 @@
         proxy_url: '',
         proxy_path: '/api-proxy',
         proxy_mode: 'base64Path'
+      },
+      background: {
+        enabled: false,
+        type: 'image',
+        url: '',
+        poster: '',
+        overlay_opacity: 0.35,
+        overlay_color: '#000000',
+        video_autoplay: true,
+        video_loop: true,
+        video_muted: true
+      },
+      glassmorphism: {
+        enabled: false,
+        blur: 12,
+        opacity: 0.65,
+        border_style: 'light',
+        border_color: 'rgba(255, 255, 255, 0.18)',
+        border_width: 1,
+        radius: 12
       }
     }
     document.title = window.settings.title || 'Stellar'

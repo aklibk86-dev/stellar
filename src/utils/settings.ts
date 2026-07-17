@@ -37,6 +37,28 @@ const defaultSettings = {
     proxy_path: '/api-proxy',
     proxy_mode: 'base64Path' as const,
   },
+  // 全站背景配置（支持静态图片 / 视频两种媒体类型）
+  background: {
+    enabled: false,
+    type: 'image' as const,
+    url: '',
+    poster: '',
+    overlay_opacity: 0.35,
+    overlay_color: '#000000',
+    video_autoplay: true,
+    video_loop: true,
+    video_muted: true,
+  },
+  // 全局毛玻璃（Glassmorphism）卡片效果配置
+  glassmorphism: {
+    enabled: false,
+    blur: 12,
+    opacity: 0.65,
+    border_style: 'light' as const,
+    border_color: 'rgba(255, 255, 255, 0.18)',
+    border_width: 1,
+    radius: 12,
+  },
 }
 
 let initialized = false
@@ -75,6 +97,14 @@ export function initRuntimeSettings() {
     client_downloads: {
       ...defaultSettings.client_downloads,
       ...(s.client_downloads || {}),
+    },
+    background: {
+      ...defaultSettings.background,
+      ...(s.background || {}),
+    },
+    glassmorphism: {
+      ...defaultSettings.glassmorphism,
+      ...(s.glassmorphism || {}),
     },
   } as unknown as Window['settings']
 }

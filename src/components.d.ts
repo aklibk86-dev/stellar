@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     CodeInjector: typeof import('./components/CodeInjector.vue')['default']
+    GlobalBackground: typeof import('./components/GlobalBackground.vue')['default']
     NButton: typeof import('naive-ui')['NButton']
     NCheckbox: typeof import('naive-ui')['NCheckbox']
     NForm: typeof import('naive-ui')['NForm']

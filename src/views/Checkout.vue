@@ -31,21 +31,7 @@
           <div class="plan-info">
             <div class="plan-info-header">
               <h4 class="plan-info-name">{{ plan.name }}</h4>
-              <p v-if="plan.content" class="plan-info-desc">{{ plan.content }}</p>
-            </div>
-            <div class="plan-info-features">
-              <div class="info-feature">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                <span>{{ plan.transfer_enable ? formatPlanTraffic(plan.transfer_enable) : '-' }}</span>
-              </div>
-              <div class="info-feature">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                <span>{{ plan.speed_limit ? plan.speed_limit + ' Mbps' : t('plan.noSpeedLimit') }}</span>
-              </div>
-              <div class="info-feature">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-                <span>{{ plan.device_limit ? plan.device_limit + ' ' + t('plan.features_devices') : t('plan.noDeviceLimit') }}</span>
-              </div>
+              <div v-if="plan.content" class="plan-info-desc rich-content" v-html="renderRichContent(plan.content)"></div>
             </div>
           </div>
         </div>
@@ -197,7 +183,8 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSkeleton, NAlert } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, PaymentMethod, Coupon } from '@/api/types'
-import { formatPlanTraffic, formatPrice } from '@/utils/format'
+import { formatPrice } from '@/utils/format'
+import { renderRichContent } from '@/utils/safe'
 
 const route = useRoute()
 const router = useRouter()
@@ -533,9 +520,57 @@ onMounted(fetchData)
 .plan-info { display: flex; flex-direction: column; gap: 12px; }
 .plan-info-name { font-size: 18px; font-weight: 700; color: var(--stellar-text); margin: 0; }
 .plan-info-desc { font-size: 13px; color: var(--stellar-text-muted); margin: 4px 0 0 0; }
-.plan-info-features { display: flex; gap: 20px; flex-wrap: wrap; }
-.info-feature { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--stellar-text-secondary); }
-.info-feature svg { color: var(--stellar-primary); }
+
+/* 套餐介绍富文本（HTML / Markdown） */
+.plan-info-desc.rich-content { font-size: 13px; color: var(--stellar-text-muted); line-height: 1.6; }
+.plan-info-desc.rich-content :deep(p) { margin: 0 0 8px; }
+.plan-info-desc.rich-content :deep(p:last-child) { margin-bottom: 0; }
+.plan-info-desc.rich-content :deep(h1),
+.plan-info-desc.rich-content :deep(h2),
+.plan-info-desc.rich-content :deep(h3),
+.plan-info-desc.rich-content :deep(h4) { font-size: 14px; font-weight: 700; color: var(--stellar-text); margin: 10px 0 6px; line-height: 1.4; }
+.plan-info-desc.rich-content :deep(ul),
+.plan-info-desc.rich-content :deep(ol) { margin: 0 0 8px; padding-left: 20px; }
+.plan-info-desc.rich-content :deep(li) { margin: 3px 0; }
+.plan-info-desc.rich-content :deep(li::marker) { color: var(--stellar-text-muted); }
+.plan-info-desc.rich-content :deep(a) { color: var(--stellar-primary); text-decoration: none; }
+.plan-info-desc.rich-content :deep(a:hover) { text-decoration: underline; }
+.plan-info-desc.rich-content :deep(strong) { font-weight: 700; color: var(--stellar-text); }
+.plan-info-desc.rich-content :deep(em) { font-style: italic; }
+.plan-info-desc.rich-content :deep(code) { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--stellar-bg-hover); color: var(--stellar-accent); }
+.plan-info-desc.rich-content :deep(pre) { margin: 0 0 8px; padding: 10px 12px; border-radius: 6px; background: var(--stellar-bg); border: 1px solid var(--stellar-border); overflow-x: auto; }
+.plan-info-desc.rich-content :deep(pre code) { padding: 0; background: transparent; color: var(--stellar-text); }
+.plan-info-desc.rich-content :deep(blockquote) { margin: 0 0 8px; padding: 6px 12px; border-left: 3px solid var(--stellar-primary); background: var(--stellar-bg-hover); border-radius: 0 6px 6px 0; }
+.plan-info-desc.rich-content :deep(blockquote p) { margin: 0; }
+.plan-info-desc.rich-content :deep(img) { max-width: 100%; border-radius: 6px; }
+.plan-info-desc.rich-content :deep(table) { width: 100%; border-collapse: collapse; margin: 0 0 8px; font-size: 12px; }
+.plan-info-desc.rich-content :deep(th),
+.plan-info-desc.rich-content :deep(td) { padding: 5px 10px; border: 1px solid var(--stellar-border); text-align: left; }
+.plan-info-desc.rich-content :deep(th) { background: var(--stellar-bg-hover); font-weight: 600; }
+.plan-info-desc.rich-content :deep(hr) { border: none; border-top: 1px solid var(--stellar-border-light); margin: 10px 0; }
+
+/* JSON 结构化介绍（贴合 detail-row 风格） */
+.plan-info-desc.rich-content :deep(.jt) { font-size: 13px; font-weight: 600; color: var(--stellar-text-secondary); margin: 12px 0 4px; }
+.plan-info-desc.rich-content :deep(.jt:first-child) { margin-top: 0; }
+.plan-info-desc.rich-content :deep(.jt-list) { list-style: none; margin: 0; padding: 0; }
+/* 文本条目：勾选图标 + 文本 */
+.plan-info-desc.rich-content :deep(.jt-text) { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--stellar-text-secondary); line-height: 1.6; padding: 6px 0; }
+.plan-info-desc.rich-content :deep(.jt-text .ji) { color: var(--stellar-success); flex-shrink: 0; margin-top: 3px; }
+.plan-info-desc.rich-content :deep(.jt-text span) { flex: 1; }
+/* 键值对条目：label 左 / value 右，分隔线风格 */
+.plan-info-desc.rich-content :deep(.jt-kv) { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; padding: 10px 4px; border-bottom: 1px solid var(--stellar-border-light); }
+.plan-info-desc.rich-content :deep(.jt-list .jt-kv:last-child) { border-bottom: none; }
+.plan-info-desc.rich-content :deep(.jt-label) { color: var(--stellar-text-muted); flex-shrink: 0; }
+.plan-info-desc.rich-content :deep(.jt-value) { color: var(--stellar-text); font-weight: 500; text-align: right; }
+/* 高亮键值对 */
+.plan-info-desc.rich-content :deep(.jt-kv.is-hl) { background: var(--stellar-primary-light); border-radius: 8px; padding: 10px 12px; margin: 2px -8px; border-bottom: none; }
+.plan-info-desc.rich-content :deep(.jt-kv.is-hl .jt-value) { color: var(--stellar-primary); font-weight: 600; }
+/* 分隔线 */
+.plan-info-desc.rich-content :deep(.jt-divider) { height: 0; margin: 8px 0; padding: 0; border: none; border-top: 1px solid var(--stellar-border-light); list-style: none; }
+/* 链接键值对 */
+.plan-info-desc.rich-content :deep(.jt-link) { color: var(--stellar-primary); text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
+.plan-info-desc.rich-content :deep(.jt-link:hover) { text-decoration: underline; }
+.plan-info-desc.rich-content :deep(.jt-link::after) { content: '↗'; font-size: 12px; opacity: 0.7; }
 
 /* 计费周期 */
 .period-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -573,7 +608,7 @@ onMounted(fetchData)
 .stripe-badge svg { flex-shrink: 0; }
 
 /* 订单摘要 */
-.summary-card { }
+.summary-card { /* 占位，由毛玻璃选择器控制背景 */ }
 .summary-rows { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
 .summary-row { display: flex; justify-content: space-between; align-items: center; }
 .summary-label { font-size: 13px; color: var(--stellar-text-secondary); }

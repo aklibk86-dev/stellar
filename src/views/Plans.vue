@@ -78,55 +78,28 @@
         :key="plan.id"
         class="plan-card"
       >
-        <!-- 套餐名称 -->
+        <!-- 套餐名称 + 价格 -->
         <div class="plan-header">
           <h3 class="plan-name">{{ plan.name }}</h3>
-          <p v-if="plan.content" class="plan-desc">{{ plan.content }}</p>
+          <div class="plan-price-display">
+            <template v-if="plan.month_price !== null">
+              <span class="price-symbol">¥</span>
+              <span class="price-number">{{ formatPrice(plan.month_price) }}</span>
+              <span class="price-period-label">{{ t('plan.perMonth') }}</span>
+            </template>
+            <template v-else-if="plan.onetime_price !== null">
+              <span class="price-symbol">¥</span>
+              <span class="price-number">{{ formatPrice(plan.onetime_price) }}</span>
+              <span class="price-period-label">{{ t('plan.perOnetime') }}</span>
+            </template>
+            <template v-else>
+              <span class="price-unavailable">-</span>
+            </template>
+          </div>
         </div>
 
-        <!-- 月付价格 -->
-        <div class="plan-price-display">
-          <template v-if="plan.month_price !== null">
-            <span class="price-symbol">¥</span>
-            <span class="price-number">{{ formatPrice(plan.month_price) }}</span>
-            <span class="price-period-label">{{ t('plan.perMonth') }}</span>
-          </template>
-          <template v-else-if="plan.onetime_price !== null">
-            <span class="price-symbol">¥</span>
-            <span class="price-number">{{ formatPrice(plan.onetime_price) }}</span>
-            <span class="price-period-label">{{ t('plan.perOnetime') }}</span>
-          </template>
-          <template v-else>
-            <span class="price-unavailable">-</span>
-          </template>
-        </div>
-
-        <!-- 套餐特性列表 -->
-        <div class="plan-features">
-          <div class="feature-item">
-            <svg class="feature-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-            <span class="feature-label">{{ t('plan.features_traffic') }}</span>
-            <span class="feature-value">{{ plan.transfer_enable ? formatPlanTraffic(plan.transfer_enable) : '-' }}</span>
-          </div>
-          <div class="feature-item">
-            <svg class="feature-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            <span class="feature-label">{{ t('plan.features_speed') }}</span>
-            <span class="feature-value">{{ plan.speed_limit ? plan.speed_limit + ' Mbps' : t('plan.noSpeedLimit') }}</span>
-          </div>
-          <div class="feature-item">
-            <svg class="feature-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-            <span class="feature-label">{{ t('plan.features_devices') }}</span>
-            <span class="feature-value">{{ plan.device_limit ? plan.device_limit : t('plan.noDeviceLimit') }}</span>
-          </div>
-        </div>
+        <!-- 套餐介绍（支持 JSON / HTML / Markdown） -->
+        <div v-if="plan.content" class="plan-desc rich-content" v-html="renderRichContent(plan.content)"></div>
 
         <!-- 购买按钮 -->
         <div class="plan-action">
@@ -200,8 +173,8 @@ import { useI18n } from 'vue-i18n'
 import { NButton, NSelect, NSkeleton, NModal, NCheckbox } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, Notice } from '@/api/types'
-import { formatPlanTraffic, formatPrice, formatDate } from '@/utils/format'
-import { sanitizeHtml } from '@/utils/safe'
+import { formatPrice, formatDate } from '@/utils/format'
+import { sanitizeHtml, renderRichContent } from '@/utils/safe'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -418,21 +391,66 @@ onMounted(async () => {
 
 .plan-card { position: relative; background: var(--stellar-bg-card); border: 1px solid var(--stellar-border); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s; }
 .plan-card:hover { border-color: var(--stellar-primary); box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12); transform: translateY(-2px); }
-.plan-header { }
-.plan-name { font-size: 20px; font-weight: 700; color: var(--stellar-text); margin: 0 0 4px 0; }
-.plan-desc { font-size: 12px; color: var(--stellar-text-muted); margin: 0; line-height: 1.5; }
+.plan-header { display: flex; flex-direction: column; gap: 6px; }
+.plan-name { font-size: 20px; font-weight: 700; color: var(--stellar-text); margin: 0; }
+.plan-desc { font-size: 12px; color: var(--stellar-text-muted); margin: 0; line-height: 1.5; flex: 1; }
 
-.plan-price-display { display: flex; align-items: baseline; gap: 2px; padding: 4px 0; }
+/* 套餐介绍富文本（HTML / Markdown） */
+.plan-desc.rich-content { font-size: 12px; color: var(--stellar-text-muted); }
+.plan-desc.rich-content :deep(p) { margin: 0 0 6px; }
+.plan-desc.rich-content :deep(p:last-child) { margin-bottom: 0; }
+.plan-desc.rich-content :deep(h1),
+.plan-desc.rich-content :deep(h2),
+.plan-desc.rich-content :deep(h3),
+.plan-desc.rich-content :deep(h4) { font-size: 13px; font-weight: 700; color: var(--stellar-text); margin: 8px 0 4px; line-height: 1.4; }
+.plan-desc.rich-content :deep(ul),
+.plan-desc.rich-content :deep(ol) { margin: 0 0 6px; padding-left: 18px; }
+.plan-desc.rich-content :deep(li) { margin: 2px 0; }
+.plan-desc.rich-content :deep(li::marker) { color: var(--stellar-text-muted); }
+.plan-desc.rich-content :deep(a) { color: var(--stellar-primary); text-decoration: none; }
+.plan-desc.rich-content :deep(a:hover) { text-decoration: underline; }
+.plan-desc.rich-content :deep(strong) { font-weight: 700; color: var(--stellar-text); }
+.plan-desc.rich-content :deep(em) { font-style: italic; }
+.plan-desc.rich-content :deep(code) { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; padding: 1px 4px; border-radius: 3px; background: var(--stellar-bg-hover); color: var(--stellar-accent); }
+.plan-desc.rich-content :deep(pre) { margin: 0 0 6px; padding: 8px 10px; border-radius: 6px; background: var(--stellar-bg); border: 1px solid var(--stellar-border); overflow-x: auto; }
+.plan-desc.rich-content :deep(pre code) { padding: 0; background: transparent; color: var(--stellar-text); }
+.plan-desc.rich-content :deep(blockquote) { margin: 0 0 6px; padding: 4px 10px; border-left: 2px solid var(--stellar-primary); background: var(--stellar-bg-hover); border-radius: 0 6px 6px 0; }
+.plan-desc.rich-content :deep(blockquote p) { margin: 0; }
+.plan-desc.rich-content :deep(img) { max-width: 100%; border-radius: 6px; }
+.plan-desc.rich-content :deep(table) { width: 100%; border-collapse: collapse; margin: 0 0 6px; font-size: 11px; }
+.plan-desc.rich-content :deep(th),
+.plan-desc.rich-content :deep(td) { padding: 4px 8px; border: 1px solid var(--stellar-border); text-align: left; }
+.plan-desc.rich-content :deep(th) { background: var(--stellar-bg-hover); font-weight: 600; }
+.plan-desc.rich-content :deep(hr) { border: none; border-top: 1px solid var(--stellar-border-light); margin: 8px 0; }
+
+/* JSON 结构化介绍（贴合 detail-row 风格） */
+.plan-desc.rich-content :deep(.jt) { font-size: 12px; font-weight: 600; color: var(--stellar-text-secondary); margin: 10px 0 2px; }
+.plan-desc.rich-content :deep(.jt:first-child) { margin-top: 0; }
+.plan-desc.rich-content :deep(.jt-list) { list-style: none; margin: 0; padding: 0; }
+/* 文本条目：勾选图标 + 文本 */
+.plan-desc.rich-content :deep(.jt-text) { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--stellar-text-secondary); line-height: 1.5; padding: 4px 0; }
+.plan-desc.rich-content :deep(.jt-text .ji) { color: var(--stellar-success); flex-shrink: 0; margin-top: 2px; }
+.plan-desc.rich-content :deep(.jt-text span) { flex: 1; }
+/* 键值对条目：label 左 / value 右，分隔线风格 */
+.plan-desc.rich-content :deep(.jt-kv) { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--stellar-border-light); }
+.plan-desc.rich-content :deep(.jt-list .jt-kv:last-child) { border-bottom: none; }
+.plan-desc.rich-content :deep(.jt-label) { color: var(--stellar-text-muted); flex-shrink: 0; }
+.plan-desc.rich-content :deep(.jt-value) { color: var(--stellar-text); font-weight: 500; text-align: right; }
+/* 高亮键值对 */
+.plan-desc.rich-content :deep(.jt-kv.is-hl) { background: var(--stellar-primary-light); border-radius: 6px; padding: 6px 10px; margin: 2px -6px; border-bottom: none; }
+.plan-desc.rich-content :deep(.jt-kv.is-hl .jt-value) { color: var(--stellar-primary); font-weight: 600; }
+/* 分隔线 */
+.plan-desc.rich-content :deep(.jt-divider) { height: 0; margin: 6px 0; padding: 0; border: none; border-top: 1px solid var(--stellar-border-light); list-style: none; }
+/* 链接键值对 */
+.plan-desc.rich-content :deep(.jt-link) { color: var(--stellar-primary); text-decoration: none; display: inline-flex; align-items: center; gap: 2px; }
+.plan-desc.rich-content :deep(.jt-link:hover) { text-decoration: underline; }
+.plan-desc.rich-content :deep(.jt-link::after) { content: '↗'; font-size: 11px; opacity: 0.7; }
+
+.plan-price-display { display: flex; align-items: baseline; gap: 2px; }
 .price-symbol { font-size: 16px; font-weight: 600; color: var(--stellar-primary); }
 .price-number { font-size: 36px; font-weight: 800; color: var(--stellar-primary); line-height: 1; }
 .price-period-label { font-size: 13px; color: var(--stellar-text-muted); margin-left: 4px; }
 .price-unavailable { font-size: 24px; color: var(--stellar-text-muted); }
-
-.plan-features { display: flex; flex-direction: column; gap: 10px; padding: 16px 0; border-top: 1px solid var(--stellar-border-light); border-bottom: 1px solid var(--stellar-border-light); flex: 1; }
-.feature-item { display: flex; align-items: center; gap: 8px; }
-.feature-icon { color: var(--stellar-primary); flex-shrink: 0; }
-.feature-label { font-size: 13px; color: var(--stellar-text-secondary); flex: 1; }
-.feature-value { font-size: 13px; font-weight: 600; color: var(--stellar-text); }
 
 .plan-action { margin-top: auto; }
 

@@ -39,6 +39,8 @@ window.settings = {
   version: '1.0.0',
 
   // 背景图片 URL（留空用默认）
+  // 注意：此字段为旧版配置，仅用于 auth 页面背景，已由下方 background 配置取代。
+  // 若同时配置了 background.enabled，将以 background 为准。
   background_url: '',
 
   // Logo URL（留空用项目默认图标）
@@ -86,6 +88,77 @@ window.settings = {
   },
 
   // ==========================================================
+  // 全站背景（支持静态图片 / 视频两种媒体类型）
+  // ==========================================================
+  // 启用后，背景媒体会响应式地覆盖整个视口（position: fixed; inset: 0）。
+  // - 图片：使用 <div> + background-size: cover 实现自适应铺满
+  // - 视频：使用 <video> 标签，object-fit: cover 铺满，支持自动播放/循环/静音
+  // 媒体之上会叠加一层半透明遮罩，以提升前景内容的可读性。
+  // ==========================================================
+  background: {
+    // 是否启用全站背景
+    enabled: false,
+
+    // 媒体类型：'image'（静态图片）或 'video'（视频背景）
+    type: 'image',
+
+    // 媒体资源 URL
+    // - type='image' 时填写图片地址（jpg/png/webp/svg 等）
+    // - type='video' 时填写视频地址（mp4/webm/ogg 等，建议 mp4 + H.264 兼容性最佳）
+    url: '',
+
+    // 视频封面图 URL（仅 type='video' 生效，视频加载前/不可用时显示）
+    poster: '',
+
+    // 遮罩透明度 0-1（叠加在媒体之上的纯色遮罩，值越大前景越清晰但背景越暗）
+    overlay_opacity: 0.35,
+
+    // 遮罩颜色（任意合法 CSS 颜色值，如 '#000000' / 'rgba(0,0,0,0.5)'）
+    overlay_color: '#000000',
+
+    // ---- 以下三项仅 type='video' 生效 ----
+    // 视频自动播放（浏览器要求自动播放必须静音，建议保持 muted: true）
+    video_autoplay: true,
+    // 视频循环播放
+    video_loop: true,
+    // 视频静音（自动播放场景下必须为 true，否则会被浏览器拦截）
+    video_muted: true,
+  },
+
+  // ==========================================================
+  // 全局毛玻璃（Glassmorphism）卡片效果
+  // ==========================================================
+  // 启用后，所有使用 .stellar-glass / .stellar-card 类的卡片组件
+  // 将应用 backdrop-filter 模糊 + 半透明背景 + 可选边框的毛玻璃效果。
+  // 通过 CSS 变量驱动，可在运行时动态调整而无需重新构建。
+  // ==========================================================
+  glassmorphism: {
+    // 是否启用毛玻璃效果（false 时卡片使用默认实色背景）
+    enabled: false,
+
+    // 背景模糊强度，单位 px（对应 backdrop-filter: blur(Npx)）
+    blur: 12,
+
+    // 卡片背景透明度 0-1（叠加在模糊层之上的半透明色，值越小越通透）
+    opacity: 0.65,
+
+    // 边框样式：
+    //   'none'   - 无边框
+    //   'solid'  - 实线边框（使用 border_color / border_width）
+    //   'light'  - 细半透明线（适合玻璃质感，推荐）
+    border_style: 'light',
+
+    // 边框颜色（任意合法 CSS 颜色值，border_style='none' 时忽略）
+    border_color: 'rgba(255, 255, 255, 0.18)',
+
+    // 边框宽度，单位 px
+    border_width: 1,
+
+    // 卡片圆角，单位 px
+    radius: 12,
+  },
+
+  // ==========================================================
   // 后端 API 配置（静态托管核心配置）
   // ==========================================================
 
@@ -93,14 +166,10 @@ window.settings = {
     // 【模式选择】
     // 'static' - 固定后端地址列表（推荐静态托管使用，支持多地址+健康检测自动切换）
     // 'auto'   - 自动同源拼接（适合后端和前端部署在同一域名下）
-    url_mode: 'static',
+    url_mode: 'auto',
 
     // 【static 模式】后端 API 地址列表（支持多个，会自动检测可用的）
-    static_base_urls: [
-      'https://xbtest.aklibk.com',
-      'https://xbdev.aklibk.com',
-      'https://xbdemo.aklibk.com',
-    ],
+    static_base_urls: [],
 
     // 【auto 模式】同源拼接规则（url_mode='auto' 时生效）
     auto: {
@@ -110,7 +179,7 @@ window.settings = {
     },
 
     // 【健康检测】启用后前端会自动检测 static_base_urls 中可用的后端
-    check_enabled: true,
+    check_enabled: false,
     check_path: '/api/v1/guest/comm/config',
 
     // 【正向代理】解决 CORS 或内网穿透问题（非必须不启用）
