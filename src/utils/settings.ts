@@ -36,6 +36,8 @@ const defaultSettings = {
     proxy_url: '',
     proxy_path: '/api-proxy',
     proxy_mode: 'base64Path' as const,
+    // 后端类型：'xboard' | 'v2board' | 'auto'（自动探测）
+    backend_type: 'auto' as const,
   },
   // 全站背景配置（支持静态图片 / 视频两种媒体类型）
   background: {

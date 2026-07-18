@@ -60,12 +60,12 @@
           </n-form>
 
           <!-- 分隔线 -->
-          <div class="auth-divider">
+          <div v-if="showEmailLinkLogin" class="auth-divider">
             <span>{{ t('auth.or') }}</span>
           </div>
 
-          <!-- 邮件链接登录 -->
-          <div class="email-link-login">
+          <!-- 邮件链接登录（仅 xboard 后端支持） -->
+          <div v-if="showEmailLinkLogin" class="email-link-login">
             <n-button block size="large" quaternary :loading="emailLinkLoading" @click="handleEmailLinkLogin">
               <template #icon>
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -94,6 +94,7 @@ import { useAppStore } from '@/stores/app'
 import { passportApi } from '@/api'
 import { NButton } from 'naive-ui'
 import { getSafeRedirect } from '@/utils/safe'
+import { can } from '@/utils/backend'
 
 const router = useRouter()
 const route = useRoute()
@@ -106,6 +107,8 @@ const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 const rememberMe = ref(true)
 const emailLinkLoading = ref(false)
+// 邮件链接登录仅 xboard 后端支持
+const showEmailLinkLogin = computed(() => can('magicLinkLogin'))
 
 const title = computed(() => appStore.title)
 const logo = computed(() => appStore.logo)

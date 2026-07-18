@@ -19,6 +19,9 @@ export interface User {
   uuid: string
   avatar_url: string
   sign?: string
+  // v2board 独有：用户信息中返回设备限制与自动续费
+  device_limit?: number | null
+  auto_renewal?: boolean
 }
 
 // 订阅信息
@@ -37,6 +40,9 @@ export interface Subscribe {
   subscribe_url: string
   reset_day: number | null
   plan: Plan | null
+  // v2board 独有：当前在线 IP 数与是否允许流量提前重置
+  alive_ip?: number
+  allow_new_period?: boolean
 }
 
 // 统计信息

@@ -15,6 +15,8 @@ export interface ApiRuntimeConfig {
   proxy_url?: string
   proxy_path?: string
   proxy_mode?: ApiProxyMode
+  /** 后端类型：'xboard' (cedar2025/Xboard) | 'v2board' (wyx2685/v2board) | 'auto' 自动探测 */
+  backend_type?: 'xboard' | 'v2board' | 'auto'
 }
 
 const STORAGE_KEY = 'stellar_available_api_url'

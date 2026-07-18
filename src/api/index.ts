@@ -6,6 +6,7 @@ import type {
   OrderCheckoutResult, InviteDetails,
   OrderListResponse, TicketListResponse, InviteListResponse, TrafficLogResponse,
 } from './types'
+import { getApiPaths, can } from '@/utils/backend'
 
 // 规范化列表数据：兼容数组和 { data: [] } 两种格式
 export function normalizeListData<T>(payload: T[] | { data: T[]; total?: number } | null | undefined): T[] {
@@ -61,130 +62,176 @@ export function normalizeKnowledge(payload: any): Knowledge[] {
   return []
 }
 
+// 获取当前后端的 API 路径表（每次调用动态获取，以便 backend_type 切换后立即生效）
+const paths = () => getApiPaths()
+
 // ===== Guest API (无需认证) =====
 export const guestApi = {
-  getConfig: () => http.get<GuestConfig>('/api/v1/guest/comm/config'),
-  getPlans: () => http.get<Plan[]>('/api/v1/guest/plan/fetch'),
+  getConfig: () => http.get<GuestConfig>(paths().guestConfig),
+  getPlans: () => {
+    // v2board 无游客套餐接口，返回空数组以便前端回退到示例套餐
+    const url = paths().guestPlanFetch
+    if (!url) return Promise.resolve({ data: [] as Plan[] })
+    return http.get<Plan[]>(url)
+  },
 }
 
 // ===== Passport API (认证) =====
 export const passportApi = {
   login: (email: string, password: string) =>
-    http.post<{ token: string; auth_data: string; is_admin: boolean }>('/api/v1/passport/auth/login', { email, password }),
+    http.post<{ token: string; auth_data: string; is_admin: boolean }>(paths().login, { email, password }),
   register: (email: string, password: string, invite_code?: string, email_code?: string) =>
-    http.post<{ token: string; auth_data: string; is_admin: boolean }>('/api/v1/passport/auth/register', {
+    http.post<{ token: string; auth_data: string; is_admin: boolean }>(paths().register, {
       email, password, invite_code, email_code,
     }),
   forget: (email: string, password: string, email_code: string) =>
-    http.post<Record<string, never>>('/api/v1/passport/auth/forget', { email, password, email_code }),
+    http.post<Record<string, never>>(paths().forget, { email, password, email_code }),
   token2Login: (token: string) =>
-    http.get<{ token: string; auth_data: User }>('/api/v1/passport/auth/token2Login', { params: { token } }),
+    http.get<{ token: string; auth_data: User }>(paths().token2Login, { params: { token } }),
   getQuickLoginUrl: () =>
-    http.post<{ url: string }>('/api/v1/passport/auth/getQuickLoginUrl'),
-  loginWithMailLink: (email: string, email_code: string, redirect?: string) =>
-    http.post<{ token: string; auth_data: User }>('/api/v1/passport/auth/loginWithMailLink', {
+    http.post<{ url: string }>(paths().getQuickLoginUrl),
+  loginWithMailLink: (email: string, email_code: string, redirect?: string) => {
+    // v2board 不支持魔法链接登录
+    if (!can('magicLinkLogin')) {
+      return Promise.reject({ status: 0, message: '当前后端不支持邮箱链接登录' })
+    }
+    return http.post<{ token: string; auth_data: User }>(paths().loginWithMailLink, {
       email, email_code, redirect,
-    }),
+    })
+  },
   sendEmailVerify: (email: string, password?: string) =>
-    http.post<Record<string, never>>('/api/v1/passport/comm/sendEmailVerify', { email, password }),
+    http.post<Record<string, never>>(paths().sendEmailVerify, { email, password }),
 }
 
 // ===== User API (需登录) =====
 export const userApi = {
-  getInfo: () => http.get<User>('/api/v1/user/info'),
-  getSubscribe: () => http.get<Subscribe>('/api/v1/user/getSubscribe'),
-  getStat: () => http.get<Stat>('/api/v1/user/getStat'),
+  getInfo: () => http.get<User>(paths().userInfo),
+  getSubscribe: () => http.get<Subscribe>(paths().userSubscribe),
+  getStat: () => http.get<Stat>(paths().userStat),
   changePassword: (oldpwd: string, newpwd: string) =>
-    http.post<Record<string, never>>('/api/v1/user/changePassword', { oldpwd, newpwd }),
+    http.post<Record<string, never>>(paths().changePassword, { oldpwd, newpwd }),
   update: (data: Partial<User>) =>
-    http.post<Record<string, never>>('/api/v1/user/update', data),
+    http.post<Record<string, never>>(paths().userUpdate, data),
   getQuickLoginUrl: () =>
-    http.post<{ url: string }>('/api/v1/user/getQuickLoginUrl'),
-  checkLogin: () => http.get<Record<string, never>>('/api/v1/user/checkLogin'),
+    http.post<{ url: string }>(paths().userQuickLoginUrl),
+  checkLogin: () => http.get<Record<string, never>>(paths().checkLogin),
   // 佣金划转：amount 单位为「分」，与 commission_balance 单位一致
   transfer: (amount: number) =>
-    http.post<Record<string, never>>('/api/v1/user/transfer', { transfer_amount: amount }),
-  resetSecurity: () => http.get<{ token: string }>('/api/v1/user/resetSecurity'),
-  getActiveSession: () => http.get<any[]>('/api/v1/user/getActiveSession'),
+    http.post<Record<string, never>>(paths().transfer, { transfer_amount: amount }),
+  resetSecurity: () => http.get<{ token: string }>(paths().resetSecurity),
+  getActiveSession: () => http.get<any[]>(paths().getActiveSession),
   removeActiveSession: (session_id: string) =>
-    http.post<Record<string, never>>('/api/v1/user/removeActiveSession', { session_id }),
+    http.post<Record<string, never>>(paths().removeActiveSession, { session_id }),
+  // 流量提前重置（仅 v2board 支持）
+  newPeriod: () => {
+    if (!can('newPeriod')) {
+      return Promise.reject({ status: 0, message: '当前后端不支持流量提前重置' })
+    }
+    return http.post<Record<string, never>>(paths().newPeriod)
+  },
+  // 解绑 Telegram（仅 v2board 支持）
+  unbindTelegram: () => {
+    if (!can('unbindTelegram')) {
+      return Promise.reject({ status: 0, message: '当前后端不支持解绑 Telegram' })
+    }
+    return http.get<Record<string, never>>(paths().unbindTelegram)
+  },
 
   // 订单
   getOrderList: (page = 1, pageSize = 20) =>
-    http.get<OrderListResponse>('/api/v1/user/order/fetch', { params: { page, page_size: pageSize } }),
+    http.get<OrderListResponse>(paths().orderFetch, { params: { page, page_size: pageSize } }),
   orderSave: (plan_id: number, period: string, coupon_code?: string) =>
-    http.post<string | { trade_no: string }>('/api/v1/user/order/save', {
+    http.post<string | { trade_no: string }>(paths().orderSave, {
       plan_id, period, ...(coupon_code ? { coupon_code } : {}),
     }),
   orderCheckout: (trade_no: string, method: number | string) =>
-    http.post<OrderCheckoutResult>('/api/v1/user/order/checkout', { trade_no, method }),
+    http.post<OrderCheckoutResult>(paths().orderCheckout, { trade_no, method }),
   orderCheck: (trade_no: string) =>
-    http.get<{ status: number }>('/api/v1/user/order/check', { params: { trade_no } }),
+    http.get<{ status: number }>(paths().orderCheck, { params: { trade_no } }),
   orderDetail: (trade_no: string) =>
-    http.get<Order>('/api/v1/user/order/detail', { params: { trade_no } }),
+    http.get<Order>(paths().orderDetail, { params: { trade_no } }),
   orderCancel: (trade_no: string) =>
-    http.post<Record<string, never>>('/api/v1/user/order/cancel', { trade_no }),
+    http.post<Record<string, never>>(paths().orderCancel, { trade_no }),
   getPaymentMethod: () =>
-    http.get<PaymentMethod[]>('/api/v1/user/order/getPaymentMethod'),
+    http.get<PaymentMethod[]>(paths().getPaymentMethod),
 
   // 套餐
-  getPlans: () => http.get<Plan[]>('/api/v1/user/plan/fetch'),
+  getPlans: () => http.get<Plan[]>(paths().planFetch),
 
   // 邀请
   getInviteList: (page = 1) =>
-    http.get<InviteListResponse>('/api/v1/user/invite/fetch', { params: { page } }),
+    http.get<InviteListResponse>(paths().inviteFetch, { params: { page } }),
   getInviteDetails: () =>
-    http.get<InviteDetails>('/api/v1/user/invite/details'),
+    http.get<InviteDetails>(paths().inviteDetails),
   saveInvite: () =>
-    http.get<{ code: string }>('/api/v1/user/invite/save'),
+    http.get<{ code: string }>(paths().inviteSave),
 
   // 公告
-  getNotices: () => http.get<Notice[]>('/api/v1/user/notice/fetch'),
+  getNotices: () => http.get<Notice[]>(paths().noticeFetch),
 
   // 工单
   getTicketList: (page = 1) =>
-    http.get<TicketListResponse>('/api/v1/user/ticket/fetch', { params: { page } }),
+    http.get<TicketListResponse>(paths().ticketFetch, { params: { page } }),
   getTicketDetail: (id: number) =>
-    http.get<Ticket>('/api/v1/user/ticket/fetch', { params: { id } }),
+    http.get<Ticket>(paths().ticketFetch, { params: { id } }),
   createTicket: (subject: string, level: number, message: string) =>
-    http.post<{ id: number }>('/api/v1/user/ticket/save', { subject, level, message }),
+    http.post<{ id: number }>(paths().ticketSave, { subject, level, message }),
   replyTicket: (id: number, message: string) =>
-    http.post<Record<string, never>>('/api/v1/user/ticket/reply', { id, message }),
+    http.post<Record<string, never>>(paths().ticketReply, { id, message }),
   closeTicket: (id: number) =>
-    http.post<Record<string, never>>('/api/v1/user/ticket/close', { id }),
-  withdrawTicket: (id: number) =>
-    http.post<Record<string, never>>('/api/v1/user/ticket/withdraw', { id }),
+    http.post<Record<string, never>>(paths().ticketClose, { id }),
+  // 工单提现（仅 v2board 支持）
+  withdrawTicket: (id: number, message: string) => {
+    if (!can('ticketWithdraw')) {
+      return Promise.reject({ status: 0, message: '当前后端不支持工单提现' })
+    }
+    return http.post<Record<string, never>>(paths().ticketWithdraw, { id, message })
+  },
 
   // 服务器
-  getServers: () => http.get<Record<string, Server[]>>('/api/v1/user/server/fetch'),
+  getServers: () => http.get<Record<string, Server[]>>(paths().serverFetch),
 
   // 优惠券
   checkCoupon: (code: string) =>
-    http.post<Coupon>('/api/v1/user/coupon/check', { code }),
+    http.post<Coupon>(paths().couponCheck, { code }),
 
   // 知识库
   getKnowledgeCategories: () =>
-    http.get<KnowledgeCategory[]>('/api/v1/user/knowledge/getCategory'),
+    http.get<KnowledgeCategory[]>(paths().knowledgeGetCategory),
   getKnowledge: (keyword?: string, language?: string) =>
-    http.get<Knowledge[]>('/api/v1/user/knowledge/fetch', { params: { keyword, language } }),
+    http.get<Knowledge[]>(paths().knowledgeFetch, { params: { keyword, language } }),
 
   // 流量统计
   getTrafficLog: (page = 1, pageSize = 20) =>
-    http.get<TrafficLogResponse>('/api/v1/user/stat/getTrafficLog', { params: { page, page_size: pageSize } }),
+    http.get<TrafficLogResponse>(paths().trafficLog, { params: { page, page_size: pageSize } }),
 
-  // 礼品卡
-  checkGiftCard: (code: string) =>
-    http.post<any>('/api/v1/user/gift-card/check', { code }),
-  redeemGiftCard: (code: string) =>
-    http.post<any>('/api/v1/user/gift-card/redeem', { code }),
-  getGiftCardHistory: (page = 1) =>
-    http.get<any[]>('/api/v1/user/gift-card/history', { params: { page } }),
+  // 礼品卡（xboard 完整模块，v2board 仅兑换）
+  checkGiftCard: (code: string) => {
+    if (!can('giftCardFull')) {
+      return Promise.reject({ status: 0, message: '当前后端不支持礼品卡校验' })
+    }
+    return http.post<any>(paths().giftCardCheck, { code })
+  },
+  redeemGiftCard: (code: string) => {
+    // v2board 与 xboard 都支持兑换，但路径不同
+    const url = paths().giftCardRedeem
+    if (!url) {
+      return Promise.reject({ status: 0, message: '当前后端不支持礼品卡兑换' })
+    }
+    return http.post<any>(url, { code })
+  },
+  getGiftCardHistory: (page = 1) => {
+    if (!can('giftCardFull')) {
+      return Promise.resolve({ data: [] as any[] })
+    }
+    return http.get<any[]>(paths().giftCardHistory, { params: { page } })
+  },
 
   // Telegram
   getTelegramBotInfo: () =>
-    http.get<any>('/api/v1/user/telegram/getBotInfo'),
+    http.get<any>(paths().telegramBotInfo),
 
   // Stripe
   getStripePublicKey: () =>
-    http.post<{ public_key: string }>('/api/v1/user/comm/getStripePublicKey'),
+    http.post<{ public_key: string }>(paths().stripePublicKey),
 }

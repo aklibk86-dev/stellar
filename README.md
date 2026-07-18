@@ -9,6 +9,13 @@ Stellar Theme 是一套面向 XBoard 的现代化用户端主题。项目采用 
 
 项目支持中英文切换、深浅色主题、响应式布局、多 API 地址可用性检测、运行时配置、子目录部署以及 CDN 静态资源加速。大部分站点信息和 API 设置均可通过 `public/env.js` 修改，生产环境调整配置时通常不需要重新构建。
 
+Stellar 同时兼容两类后端项目：
+
+- **cedar2025/Xboard**：高性能 V2board 二次开发面板，支持魔法链接登录、礼品卡完整模块、Turnstile/reCAPTCHA v3 等高级验证码
+- **wyx2685/v2board**：V2board 的功能增强 fork（含原版 v2board/v2board），支持工单提现、流量提前重置、解绑 Telegram 等扩展能力
+
+通过 `public/env.js` 中的 `api.backend_type` 字段切换后端类型，前端会自动选择对应的 API 路径与字段适配策略。
+
 ## 项目介绍
 
 Stellar Theme 不只是一个展示页面，而是一套可以直接连接 XBoard 后端 API 的完整用户中心前端。它覆盖用户从访问官网、注册登录、选择套餐、创建订单、获取订阅，到查看流量、提交工单和管理账户的主要使用流程。
@@ -524,6 +531,63 @@ api: {
 | `plainPath` | 将原 API 路径直接附加到代理路径 | 服务端需预先配置固定上游后端 |
 
 > 不要部署一个允许任意目标地址且没有白名单校验的开放代理，否则可能带来 SSRF 和带宽滥用风险。
+
+## 多后端适配
+
+Stellar 同时兼容 `cedar2025/Xboard` 与 `wyx2685/v2board`（含原版 v2board）两类后端。两者 API 路由基本一致，但在部分接口路径、字段、能力上存在差异，前端通过 `api.backend_type` 配置项在运行时切换。
+
+### 配置方式
+
+在 `public/env.js` 的 `api` 字段中设置 `backend_type`：
+
+```js
+api: {
+  // 'xboard'  - 显式指定为 cedar2025/Xboard
+  // 'v2board' - 显式指定为 wyx2685/v2board 或兼容原版
+  // 'auto'    - 自动探测（首次请求 guest/comm/config 后根据字段判断，默认）
+  backend_type: 'auto',
+}
+```
+
+### 能力差异
+
+前端会根据后端类型自动启用/隐藏以下功能入口：
+
+| 功能 | cedar2025/Xboard | wyx2685/v2board |
+| --- | --- | --- |
+| 邮箱链接登录（魔法链接） | ✅ | ❌ |
+| 游客获取套餐列表 | ✅ | ❌（前端回退到示例套餐） |
+| 礼品卡校验/历史 | ✅ | ❌ |
+| 礼品卡兑换 | ✅ `/user/gift-card/redeem` | ✅ `/user/redeemgiftcard` |
+| 工单提现 | ❌ | ✅ |
+| 流量提前重置 | ❌ | ✅ |
+| 解绑 Telegram | ❌ | ✅ |
+| 订阅 `speed_limit` / `next_reset_at` | ✅ | ❌ |
+| 订阅 `alive_ip` / `allow_new_period` | ❌ | ✅ |
+| 用户 `device_limit` / `auto_renewal` | ❌（仅 subscribe 含 device_limit） | ✅ |
+| 高级验证码（Turnstile / reCAPTCHA v3） | ✅ | ❌ |
+
+### 自动探测规则
+
+`backend_type: 'auto'` 模式下，前端在首次调用 `guest/comm/config` 后根据返回字段判断：
+
+- 返回含 `is_captcha` / `captcha_type` / `turnstile_site_key` / `recaptcha_v3_site_key` 任一字段 → 识别为 **Xboard**
+- 仅返回 `is_recaptcha` → 识别为 **v2board**
+- 无法判断时默认按 **Xboard** 处理
+
+如需避免探测不确定性，建议在 `env.js` 中显式指定 `backend_type`。
+
+### 适配实现
+
+适配逻辑集中在 `src/utils/backend.ts`，包括：
+
+- `getBackendType()` - 获取当前生效的后端类型
+- `getApiPaths()` - 返回当前后端的 API 路径表
+- `getBackendCapabilities()` / `can(feature)` - 查询后端能力
+- `normalizeUser()` / `normalizeSubscribe()` / `normalizeGuestConfig()` - 字段归一化
+- `detectBackendFromGuestConfig()` - auto 模式下的探测函数
+
+所有 API 调用（`src/api/index.ts`）已改为通过 `getApiPaths()` 动态获取路径，差异化的接口（如礼品卡、魔法链接登录、工单提现等）会通过 `can()` 在调用前校验能力。
 
 ## 生产部署
 

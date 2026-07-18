@@ -2,6 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { userApi, passportApi, guestApi } from '@/api'
 import type { User, GuestConfig } from '@/api/types'
+import {
+  isAutoDetectMode,
+  setDetectedBackend,
+  detectBackendFromGuestConfig,
+  normalizeUser,
+  normalizeGuestConfig,
+} from '@/utils/backend'
 
 export const useUserStore = defineStore('user', () => {
   const authToken = ref<string>(localStorage.getItem('stellar_auth_token') || '')
@@ -33,7 +40,7 @@ export const useUserStore = defineStore('user', () => {
     fetchUserPromise = (async () => {
       try {
         const res = await userApi.getInfo()
-        user.value = res.data
+        user.value = normalizeUser(res.data)
         return res.data
       } catch {
         logout()
@@ -52,8 +59,14 @@ export const useUserStore = defineStore('user', () => {
     fetchGuestConfigPromise = (async () => {
       try {
         const res = await guestApi.getConfig()
-        guestConfig.value = res.data
-        return res.data
+        const raw = res.data
+        // auto 模式下：根据 guest config 字段特征探测后端类型
+        if (isAutoDetectMode()) {
+          const detected = detectBackendFromGuestConfig(raw)
+          if (detected) setDetectedBackend(detected)
+        }
+        guestConfig.value = normalizeGuestConfig(raw)
+        return guestConfig.value
       } catch {
         return null
       } finally {

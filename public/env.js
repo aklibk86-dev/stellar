@@ -187,5 +187,11 @@ window.settings = {
     proxy_url: '',
     proxy_path: '/api-proxy',
     proxy_mode: 'base64Path',
+
+    // 【后端类型】用于适配不同后端项目的 API 差异
+    // 'xboard'  - cedar2025/Xboard（默认猜测，支持魔法链接登录、礼品卡完整模块、Turnstile 验证码等）
+    // 'v2board' - wyx2685/v2board 及兼容的原版 v2board（支持工单提现、流量提前重置、解绑 Telegram 等）
+    // 'auto'    - 自动探测（首次请求 guest/comm/config 后根据字段判断，无法判断时按 xboard 处理）
+    backend_type: 'auto',
   },
 }

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import '@/utils/settings'
 import { useUserStore } from '@/stores/user'
 import { shouldCheckApiAvailability } from '@/utils/apiConfig'
+import { can } from '@/utils/backend'
 import i18n from '@/i18n'
 
 let hasRedirectedToApiValidation = false
@@ -46,6 +47,8 @@ const routes: RouteRecordRaw[] = [
     name: 'email-login',
     component: () => import('@/views/auth/EmailLogin.vue'),
     meta: { title: 'emailLogin', noAuth: true },
+    // 仅 xboard 后端支持魔法链接登录；v2board 后端直接跳回登录页
+    beforeEnter: () => can('magicLinkLogin') ? true : { name: 'login' },
   },
   {
     path: '/',
