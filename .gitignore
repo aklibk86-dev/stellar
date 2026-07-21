@@ -6,6 +6,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Scripts (build-time only)
+scripts/
+
 # Environment variables
 .env
 .env.local
@@ -32,3 +35,13 @@ Thumbs.db
 # Temp files
 *.tmp
 coverage/
+
+# demo
+demo/
+
+# Runtime config with sensitive URLs
+public/env.js
+
+# Auto-generated declaration files
+src/auto-imports.d.ts
+src/components.d.ts

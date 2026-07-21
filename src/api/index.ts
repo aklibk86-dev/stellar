@@ -138,8 +138,8 @@ export const userApi = {
   },
 
   // 订单
-  getOrderList: (page = 1, pageSize = 20) =>
-    http.get<OrderListResponse>(paths().orderFetch, { params: { page, page_size: pageSize } }),
+  getOrderList: (page = 1, pageSize = 20, signal?: AbortSignal) =>
+    http.get<OrderListResponse>(paths().orderFetch, { params: { page, page_size: pageSize }, signal, silent: true }),
   orderSave: (plan_id: number, period: string, coupon_code?: string) =>
     http.post<string | { trade_no: string }>(paths().orderSave, {
       plan_id, period, ...(coupon_code ? { coupon_code } : {}),
@@ -170,8 +170,8 @@ export const userApi = {
   getNotices: () => http.get<Notice[]>(paths().noticeFetch),
 
   // 工单
-  getTicketList: (page = 1) =>
-    http.get<TicketListResponse>(paths().ticketFetch, { params: { page } }),
+  getTicketList: (page = 1, signal?: AbortSignal) =>
+    http.get<TicketListResponse>(paths().ticketFetch, { params: { page }, signal, silent: true }),
   getTicketDetail: (id: number) =>
     http.get<Ticket>(paths().ticketFetch, { params: { id } }),
   createTicket: (subject: string, level: number, message: string) =>
@@ -195,11 +195,11 @@ export const userApi = {
   checkCoupon: (code: string) =>
     http.post<Coupon>(paths().couponCheck, { code }),
 
-  // 知识库
+  // 知识库 - xboard 后端需要 language 参数(zh-CN)才能返回对应语言文档
   getKnowledgeCategories: () =>
-    http.get<KnowledgeCategory[]>(paths().knowledgeGetCategory),
+    http.get<KnowledgeCategory[]>(paths().knowledgeGetCategory, { silent: true }),
   getKnowledge: (keyword?: string, language?: string) =>
-    http.get<Knowledge[]>(paths().knowledgeFetch, { params: { keyword, language } }),
+    http.get<Knowledge[]>(paths().knowledgeFetch, { params: { keyword, language }, silent: true }),
 
   // 流量统计
   getTrafficLog: (page = 1, pageSize = 20) =>

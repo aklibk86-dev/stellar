@@ -62,18 +62,27 @@ const visible = ref(true)
 const cancelling = ref(false)
 const pendingOrders = ref<any[]>([])
 let timer: ReturnType<typeof setInterval> | null = null
+// 用于在组件卸载时取消进行中的请求,避免页面切换时 net::ERR_ABORTED 错误
+let abortController: AbortController | null = null
 
 const fetchPendingOrders = async () => {
+  // 取消上一次未完成的请求
+  if (abortController) abortController.abort()
+  abortController = new AbortController()
   try {
-    const res = await userApi.getOrderList()
+    const res = await userApi.getOrderList(1, 20, abortController.signal)
     const allOrders = normalizeListData<any>(res.data as any)
     pendingOrders.value = allOrders.filter(o => o.status === 0)
     // 如果有新的未支付订单，重新显示 banner
     if (pendingOrders.value.length > 0) {
       visible.value = true
     }
-  } catch (err) {
-    console.error('[PendingOrderBanner] 获取待支付订单失败:', err)
+  } catch (err: any) {
+    // 请求被取消/中止(如页面切换组件卸载),静默处理;仅对真实业务错误输出 warn
+    const code = err?.code
+    const status = err?.status
+    if (code === 'ERR_CANCELED' || code === 'ECONNABORTED' || status === 0 || err?.name === 'CanceledError') return
+    console.warn('[PendingOrderBanner] 获取待支付订单失败:', err?.status || err?.message)
   }
 }
 
@@ -103,8 +112,8 @@ const cancelAll = async () => {
     for (const order of [...pendingOrders.value]) {
       try {
         await userApi.orderCancel(order.trade_no)
-      } catch (err) {
-        console.error('[PendingOrderBanner] 取消订单失败:', err)
+      } catch (err: any) {
+        console.warn('[PendingOrderBanner] 取消订单失败:', err?.status || err?.message)
       }
     }
     pendingOrders.value = []
@@ -151,6 +160,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (abortController) abortController.abort()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('refresh-pending-orders', handleRefreshEvent)
 })

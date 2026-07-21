@@ -1,0 +1,647 @@
+<template>
+  <div class="knowledge-detail-page">
+    <!-- 顶部导航条 -->
+    <div class="detail-nav">
+      <button class="back-btn" @click="goBack">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>{{ t('knowledge.backToList') }}</span>
+      </button>
+
+      <!-- 文档内导航: 上一篇 / 下一篇 -->
+      <div class="doc-nav" v-if="doc">
+        <button
+          class="doc-nav-btn"
+          :class="{ disabled: !prevDoc }"
+          :disabled="!prevDoc"
+          @click="goDoc(prevDoc!.id)"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span class="doc-nav-label">{{ t('knowledge.prevDoc') }}</span>
+          <span class="doc-nav-name">{{ prevDoc ? prevDoc.title : '—' }}</span>
+        </button>
+        <button
+          class="doc-nav-btn doc-nav-btn--next"
+          :class="{ disabled: !nextDoc }"
+          :disabled="!nextDoc"
+          @click="goDoc(nextDoc!.id)"
+        >
+          <span class="doc-nav-name">{{ nextDoc ? nextDoc.title : '—' }}</span>
+          <span class="doc-nav-label">{{ t('knowledge.nextDoc') }}</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 加载中 -->
+    <div v-if="loading" class="state-box">
+      <span class="loading-dot"></span>
+      <span>{{ t('common.loading') }}</span>
+    </div>
+
+    <!-- 未找到 -->
+    <div v-else-if="!doc" class="state-box state-box--empty">
+      <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      </svg>
+      <p>{{ allDocs.length === 0 ? t('knowledge.noDocs') : t('knowledge.docNotFound') }}</p>
+      <button class="back-list-btn" @click="goBack">{{ t('knowledge.backToList') }}</button>
+    </div>
+
+    <!-- 文档内容 -->
+    <article v-else class="doc-article">
+      <!-- 文章头部 -->
+      <header class="article-header">
+        <div class="article-header-top">
+          <n-tag size="small" round :bordered="false" class="article-category">
+            {{ getCategoryName(doc.category) }}
+          </n-tag>
+          <span class="article-date">
+            {{ t('knowledge.lastUpdate') }}: {{ formatDate(doc.updated_at) }}
+          </span>
+        </div>
+        <h1 class="article-title">{{ doc.title }}</h1>
+      </header>
+
+      <!-- 文章正文 -->
+      <div class="prose" v-html="renderContent(doc.body)"></div>
+
+      <!-- 底部翻页 -->
+      <footer class="article-footer">
+        <button
+          class="footer-nav"
+          :class="{ disabled: !prevDoc }"
+          :disabled="!prevDoc"
+          @click="goDoc(prevDoc!.id)"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span class="footer-nav-text">
+            <span class="footer-nav-label">{{ t('knowledge.prevDoc') }}</span>
+            <span class="footer-nav-name">{{ prevDoc ? prevDoc.title : '—' }}</span>
+          </span>
+        </button>
+        <button
+          class="footer-nav footer-nav--next"
+          :class="{ disabled: !nextDoc }"
+          :disabled="!nextDoc"
+          @click="goDoc(nextDoc!.id)"
+        >
+          <span class="footer-nav-text">
+            <span class="footer-nav-label">{{ t('knowledge.nextDoc') }}</span>
+            <span class="footer-nav-name">{{ nextDoc ? nextDoc.title : '—' }}</span>
+          </span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </footer>
+    </article>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { NTag } from 'naive-ui'
+import { userApi } from '@/api'
+import type { Knowledge, KnowledgeCategory } from '@/api/types'
+import { formatDate } from '@/utils/format'
+import { renderContent } from '@/utils/safe'
+
+const route = useRoute()
+const router = useRouter()
+const { t, locale } = useI18n()
+
+const allDocs = ref<Knowledge[]>([])
+const categories = ref<KnowledgeCategory[]>([])
+const loading = ref(true)
+
+// 当前文档 ID (统一转为字符串进行比较,避免后端返回 number/string 不一致)
+const docId = computed(() => String(route.params.id ?? ''))
+
+// 当前文档
+const doc = computed(() => allDocs.value.find(d => String(d.id) === docId.value) || null)
+
+// 当前文档在所属分类中的索引(用于上下篇计算)
+const currentDocList = computed(() => {
+  if (!doc.value) return [] as Knowledge[]
+  // 同分类文档列表
+  return allDocs.value.filter(d => d.category === doc.value!.category)
+})
+
+const currentDocIndex = computed(() =>
+  currentDocList.value.findIndex(d => String(d.id) === docId.value),
+)
+
+const prevDoc = computed(() => {
+  const idx = currentDocIndex.value
+  if (idx <= 0) return null
+  return currentDocList.value[idx - 1]
+})
+
+const nextDoc = computed(() => {
+  const idx = currentDocIndex.value
+  if (idx < 0 || idx >= currentDocList.value.length - 1) return null
+  return currentDocList.value[idx + 1]
+})
+
+// 获取分类名
+const getCategoryName = (category: string): string => {
+  const cat = categories.value.find(c => c.category === category)
+  return cat?.name || category
+}
+
+// 加载所有文档(API 无单文档接口,从列表接口筛选)
+const fetchAll = async () => {
+  loading.value = true
+  try {
+    // 分类独立获取,失败不影响文档加载(与 Knowledge 主页保持一致)
+    userApi.getKnowledgeCategories().then(catRes => {
+      const cats = catRes.data || []
+      if (cats.length > 0) categories.value = cats
+    }).catch((err: any) => {
+      // 部分后端无此接口,静默降级
+      console.warn('[KnowledgeDetail] 获取分类失败,将从文章中提取:', err?.status || err?.message)
+    })
+
+    // 获取文档列表(关键) - 传 language=zh-CN 才能返回对应语言文档
+    const docRes = await userApi.getKnowledge(undefined, locale.value)
+    const rawData = docRes.data
+    let docs: Knowledge[] = []
+    if (Array.isArray(rawData)) {
+      docs = rawData
+    } else if (rawData && typeof rawData === 'object') {
+      for (const [, groupDocs] of Object.entries(rawData)) {
+        if (Array.isArray(groupDocs)) docs.push(...groupDocs)
+      }
+    }
+    allDocs.value = docs
+
+    // 如果分类为空,从文章中提取
+    if (categories.value.length === 0 && docs.length > 0) {
+      const catMap: Record<string, string> = {}
+      for (const d of docs) {
+        if (d.category && !catMap[d.category]) catMap[d.category] = d.category
+      }
+      categories.value = Object.keys(catMap).map((cat, i) => ({
+        id: i + 1,
+        category: cat,
+        name: cat,
+      }))
+    }
+
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (e: any) {
+    // 后端接口异常(500/404 等): 静默处理,allDocs 保持为空,页面显示"暂无文档"
+    console.warn('[KnowledgeDetail] 加载文档失败:', e?.status || e?.message)
+    allDocs.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+// 返回列表
+const goBack = () => {
+  router.push({ name: 'knowledge' })
+}
+
+// 跳转到另一篇文档
+const goDoc = (id: number) => {
+  router.push({ name: 'knowledge-detail', params: { id } })
+}
+
+// 监听路由参数变化(同一组件复用时)
+watch(() => route.params.id, (newId) => {
+  if (newId && !loading.value) {
+    // 数据已加载,只滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+})
+
+onMounted(() => {
+  fetchAll()
+})
+</script>
+
+<style scoped>
+.knowledge-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 顶部导航条 */
+.detail-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--stellar-bg-card);
+  border: 1px solid var(--stellar-border);
+  border-radius: 12px;
+}
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--stellar-border);
+  background: var(--stellar-bg-card);
+  color: var(--stellar-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.back-btn:hover {
+  background: var(--stellar-bg-hover);
+  border-color: var(--stellar-primary);
+  color: var(--stellar-primary);
+}
+
+/* 文档内导航: 上一篇 / 下一篇 */
+.doc-nav {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.doc-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--stellar-border);
+  background: var(--stellar-bg-card);
+  color: var(--stellar-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  max-width: 280px;
+}
+.doc-nav-btn:hover:not(.disabled) {
+  background: var(--stellar-bg-hover);
+  border-color: var(--stellar-primary);
+  color: var(--stellar-primary);
+}
+.doc-nav-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.doc-nav-btn--next {
+  text-align: right;
+}
+.doc-nav-label {
+  font-size: 10.5px;
+  color: var(--stellar-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.doc-nav-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--stellar-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.doc-nav-btn:hover:not(.disabled) .doc-nav-name {
+  color: var(--stellar-primary);
+}
+
+/* 加载/空状态 */
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 20px;
+  color: var(--stellar-text-muted);
+  background: var(--stellar-bg-card);
+  border: 1px solid var(--stellar-border);
+  border-radius: 12px;
+  text-align: center;
+}
+.state-box--empty svg {
+  opacity: 0.4;
+}
+.state-box p {
+  font-size: 14px;
+  margin: 0;
+}
+.loading-dot {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--stellar-border);
+  border-top-color: var(--stellar-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.back-list-btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--stellar-primary);
+  background: var(--stellar-primary);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.back-list-btn:hover {
+  opacity: 0.85;
+}
+
+/* 文档文章 */
+.doc-article {
+  background: var(--stellar-bg-card);
+  border: 1px solid var(--stellar-border);
+  border-radius: 12px;
+  padding: 32px 40px 40px;
+}
+
+/* 文章头部 */
+.article-header {
+  padding-bottom: 24px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--stellar-border-light);
+}
+.article-header-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.article-category {
+  font-weight: 600;
+}
+.article-date {
+  font-size: 12.5px;
+  color: var(--stellar-text-muted);
+}
+.article-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--stellar-text);
+  margin: 0;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* 文档正文 prose */
+.prose {
+  color: var(--stellar-text);
+  line-height: 1.75;
+  font-size: 14.5px;
+  word-break: break-word;
+}
+.prose :deep(h1) {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--stellar-text);
+  margin: 28px 0 16px;
+  line-height: 1.3;
+}
+.prose :deep(h2) {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--stellar-text);
+  margin: 26px 0 14px;
+  line-height: 1.3;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--stellar-border-light);
+}
+.prose :deep(h3) {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--stellar-text);
+  margin: 22px 0 12px;
+}
+.prose :deep(h4) {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--stellar-text);
+  margin: 20px 0 10px;
+}
+.prose :deep(p) {
+  margin: 0 0 14px;
+  color: var(--stellar-text);
+}
+.prose :deep(a) {
+  color: var(--stellar-primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.prose :deep(a:hover) {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+.prose :deep(ul),
+.prose :deep(ol) {
+  margin: 0 0 14px;
+  padding-left: 24px;
+  color: var(--stellar-text);
+}
+.prose :deep(li) {
+  margin: 4px 0;
+}
+.prose :deep(li::marker) {
+  color: var(--stellar-text-muted);
+}
+.prose :deep(blockquote) {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--stellar-primary);
+  background: var(--stellar-bg-hover);
+  border-radius: 0 8px 8px 0;
+  color: var(--stellar-text-secondary);
+}
+.prose :deep(blockquote p) {
+  margin: 0;
+}
+.prose :deep(code) {
+  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--stellar-bg-hover);
+  color: var(--stellar-accent);
+}
+.prose :deep(pre) {
+  margin: 0 0 14px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--stellar-bg);
+  border: 1px solid var(--stellar-border);
+  overflow-x: auto;
+}
+.prose :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  color: var(--stellar-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.prose :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+.prose :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+.prose :deep(th),
+.prose :deep(td) {
+  padding: 10px 12px;
+  border: 1px solid var(--stellar-border);
+  text-align: left;
+}
+.prose :deep(th) {
+  background: var(--stellar-bg-hover);
+  font-weight: 600;
+  color: var(--stellar-text);
+}
+.prose :deep(td) {
+  color: var(--stellar-text);
+}
+.prose :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--stellar-border-light);
+  margin: 20px 0;
+}
+.prose :deep(strong) {
+  font-weight: 700;
+  color: var(--stellar-text);
+}
+
+/* 底部翻页 */
+.article-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--stellar-border-light);
+}
+.footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--stellar-border);
+  background: var(--stellar-bg-card);
+  color: var(--stellar-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  flex: 1;
+  max-width: calc(50% - 6px);
+  text-align: left;
+}
+.footer-nav--next {
+  text-align: right;
+  justify-content: flex-end;
+}
+.footer-nav:hover:not(.disabled) {
+  background: var(--stellar-bg-hover);
+  border-color: var(--stellar-primary);
+  color: var(--stellar-primary);
+  transform: translateY(-1px);
+}
+.footer-nav.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.footer-nav-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.footer-nav-label {
+  font-size: 10.5px;
+  color: var(--stellar-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.footer-nav-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--stellar-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.footer-nav:hover:not(.disabled) .footer-nav-name {
+  color: var(--stellar-primary);
+}
+
+/* 移动端 */
+@media (max-width: 767px) {
+  .detail-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .doc-nav {
+    justify-content: stretch;
+  }
+  .doc-nav-btn {
+    flex: 1;
+    max-width: none;
+  }
+  .doc-nav-name {
+    max-width: 100px;
+  }
+
+  .doc-article {
+    padding: 20px 18px 24px;
+  }
+  .article-title {
+    font-size: 22px;
+  }
+
+  /* 底部翻页: 移动端垂直堆叠 */
+  .article-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .footer-nav {
+    max-width: none;
+  }
+  .footer-nav--next {
+    text-align: left;
+    justify-content: flex-start;
+  }
+}
+</style>

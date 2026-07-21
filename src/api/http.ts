@@ -1,6 +1,14 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { useUserStore } from '@/stores/user'
 import { buildProxyUrl, getApiBaseUrl, getApiConfig } from '@/utils/apiConfig'
+import router from '@/router'
+
+// 扩展 axios 配置,支持 silent 选项(静默失败,不输出 console.error)
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    silent?: boolean
+  }
+}
 
 export interface ApiError {
   status: number
@@ -40,7 +48,7 @@ http.interceptors.request.use((config) => {
 
   const userStore = useUserStore()
   if (userStore.authToken) {
-    config.headers['Authorization'] = userStore.authToken
+    config.headers['Authorization'] = `Bearer ${userStore.authToken}`
   }
   return config
 })
@@ -63,6 +71,7 @@ http.interceptors.response.use(
   (error) => {
     if (error.response) {
       const { status, data } = error.response
+      const silent = error.config?.silent
       let message = ERROR_MESSAGES[status] || `请求失败 (${status})`
       if (data?.message && typeof data.message === 'string') {
         message = data.message
@@ -71,8 +80,7 @@ http.interceptors.response.use(
       if (status === 401) {
         const userStore = useUserStore()
         userStore.logout()
-        const routerBase = window.routerBase || '/'
-        window.location.href = `${routerBase}login`
+        router.push('/login')
       }
 
       const apiError: ApiError = {
@@ -81,7 +89,9 @@ http.interceptors.response.use(
         data: data?.data,
         code: data?.code,
       }
-      console.error(`[API] HTTP ${status}:`, message)
+      if (!silent) {
+        console.error(`[API] HTTP ${status}:`, message)
+      }
       return Promise.reject(apiError)
     }
     if (error.code === 'ECONNABORTED') {
@@ -89,14 +99,27 @@ http.interceptors.response.use(
         status: 0,
         message: '请求超时，请检查网络连接',
       }
-      console.error('[API] Request timeout')
+      if (!error.config?.silent) {
+        console.error('[API] Request timeout')
+      }
+      return Promise.reject(apiError)
+    }
+    // 请求被取消(AbortController) — 页面切换/组件卸载时常见,静默处理不输出 console.error
+    if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
+      const apiError: ApiError = {
+        status: 0,
+        message: '请求已取消',
+        code: 'ERR_CANCELED',
+      }
       return Promise.reject(apiError)
     }
     const apiError: ApiError = {
       status: 0,
       message: '网络错误，请检查网络连接',
     }
-    console.error('[API] Network error:', error.message)
+    if (!error.config?.silent) {
+      console.error('[API] Network error:', error.message)
+    }
     return Promise.reject(apiError)
   }
 )

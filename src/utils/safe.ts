@@ -174,16 +174,29 @@ export function renderContent(content: string | null | undefined): string {
   return sanitizeHtml(html)
 }
 
+function isLikelyPureHtml(text: string): boolean {
+  if (!text.startsWith('<')) return false
+  if (!/<\/[a-z][a-z0-9]*>/i.test(text)) return false
+  const mdHeadings = /(^|\n)#{1,6}\s/.test(text)
+  const mdUList = /(^|\n)[-*+]\s/.test(text)
+  const mdOList = /(^|\n)\d+\.\s/.test(text)
+  const mdBlockquote = /(^|\n)>\s/.test(text)
+  const mdFence = /(^|\n)```/.test(text)
+  if (mdHeadings || mdUList || mdOList || mdBlockquote || mdFence) return false
+  return true
+}
+
 /**
  * 渲染富文本内容：同时支持 JSON、HTML 与 Markdown 格式。
  * 用于套餐介绍等需要结构化 JSON 渲染的场景。
  *
  * 判断策略（按优先级）：
  * 1. 内容以 { 或 [ 开头且能被 JSON.parse 解析 → 视为 JSON，结构化渲染
- * 2. 否则 → 统一用 marked 解析：marked 原生支持 HTML 块与行内 HTML，
- *    纯 HTML 原样透传、纯 Markdown 转换为 HTML、混排则两者兼顾。
- *    避免内容含任意 HTML 标签时跳过 Markdown 解析导致排版错乱。
- * 3. 所有路径最终都经过 DOMPurify 消毒，防止 XSS。
+ * 2. 内容以 < 开头且包含块级 HTML 标签、无明显 Markdown 特征 → 视为纯 HTML，
+ *    直接经 DOMPurify 消毒后返回，避免 marked 把缩进的 HTML 当作代码块
+ * 3. 否则 → 统一用 marked 解析：marked 原生支持 HTML 块与行内 HTML，
+ *    纯 Markdown 转换为 HTML、HTML 与 Markdown 混排则两者兼顾。
+ * 4. 所有路径最终都经过 DOMPurify 消毒，防止 XSS。
  *
  * @param content 后端返回的原始内容
  * @returns 可安全用于 v-html 的 HTML 字符串
@@ -204,7 +217,13 @@ export function renderRichContent(content: string | null | undefined): string {
     }
   }
 
-  // 2. HTML / Markdown 格式
+  // 2. 纯 HTML 格式（无明显 Markdown 特征）
+  // 直接用 DOMPurify 消毒，避免 marked 把缩进的 HTML 误判为代码块
+  if (isLikelyPureHtml(trimmed)) {
+    return sanitizeHtml(trimmed)
+  }
+
+  // 3. Markdown / HTML 混排格式
   // marked 原生支持 HTML 块与行内 HTML，统一走 marked 解析。
   // 注意：ESM 模式下 marked.parse() 默认返回 Promise，需传入 {async: false} 强制同步
   const html = marked.parse(trimmed, { async: false }) as string
@@ -213,7 +232,8 @@ export function renderRichContent(content: string | null | undefined): string {
 
 export function isSafeRedirect(path: string): boolean {
   if (!path) return false
-  if (path.startsWith('/') && !path.startsWith('//')) return true
+  const decoded = decodeURIComponent(path).replace(/\\/g, '/')
+  if (decoded.startsWith('/') && !decoded.startsWith('//')) return true
   return false
 }
 

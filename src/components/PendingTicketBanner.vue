@@ -48,6 +48,8 @@ const { t } = useI18n()
 const visible = ref(true)
 const tickets = ref<Ticket[]>([])
 let timer: ReturnType<typeof setInterval> | null = null
+// 用于在组件卸载时取消进行中的请求,避免页面切换时 net::ERR_ABORTED 错误
+let abortController: AbortController | null = null
 
 const pendingTickets = computed(() => tickets.value.filter(t => t.status !== 1))
 
@@ -57,15 +59,22 @@ const latestTicket = computed(() => {
 })
 
 const fetchTickets = async () => {
+  // 取消上一次未完成的请求
+  if (abortController) abortController.abort()
+  abortController = new AbortController()
   try {
-    const res = await userApi.getTicketList()
+    const res = await userApi.getTicketList(1, abortController.signal)
     const payload: any = res.data
     tickets.value = normalizeListData(payload)
     if (pendingTickets.value.length > 0) {
       visible.value = true
     }
-  } catch (err) {
-    console.error('[PendingTicketBanner] 获取待处理工单失败:', err)
+  } catch (err: any) {
+    // 请求被取消/中止(如页面切换组件卸载),静默处理;仅对真实业务错误输出 warn
+    const code = err?.code
+    const status = err?.status
+    if (code === 'ERR_CANCELED' || code === 'ECONNABORTED' || status === 0 || err?.name === 'CanceledError') return
+    console.warn('[PendingTicketBanner] 获取待处理工单失败:', err?.status || err?.message)
   }
 }
 
@@ -106,6 +115,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (abortController) abortController.abort()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('refresh-pending-tickets', handleRefreshEvent)
 })

@@ -65,6 +65,22 @@ const defaultSettings = {
 
 let initialized = false
 
+function isPlainObject(val: unknown): val is Record<string, unknown> {
+  return val !== null && typeof val === 'object' && !Array.isArray(val)
+}
+
+function filterPrototypeKeys(val: unknown): unknown {
+  if (isPlainObject(val)) {
+    const sanitized: Record<string, unknown> = {}
+    for (const k of Object.keys(val)) {
+      if (k === '__proto__' || k === 'constructor') continue
+      sanitized[k] = filterPrototypeKeys(val[k])
+    }
+    return sanitized
+  }
+  return val
+}
+
 export function initRuntimeSettings() {
   if (typeof window === 'undefined') return
   if (initialized) return
@@ -80,35 +96,40 @@ export function initRuntimeSettings() {
     return
   }
 
-  const s = window.settings
+  const s = filterPrototypeKeys(window.settings) as Record<string, unknown>
   window.settings = {
     ...defaultSettings,
     ...s,
     theme: {
       ...defaultSettings.theme,
-      ...s.theme,
+      ...(s.theme as Record<string, unknown> || {}),
     },
     api: {
       ...defaultSettings.api,
-      ...(s.api || {}),
+      ...((s.api || {}) as Record<string, unknown>),
       auto: {
         ...defaultSettings.api.auto,
-        ...(s.api?.auto || {}),
+        ...((s.api as Record<string, unknown>)?.auto as Record<string, unknown> || {}),
       },
     },
     client_downloads: {
       ...defaultSettings.client_downloads,
-      ...(s.client_downloads || {}),
+      ...((s.client_downloads || {}) as Record<string, unknown>),
     },
     background: {
       ...defaultSettings.background,
-      ...(s.background || {}),
+      ...((s.background || {}) as Record<string, unknown>),
     },
     glassmorphism: {
       ...defaultSettings.glassmorphism,
-      ...(s.glassmorphism || {}),
+      ...((s.glassmorphism || {}) as Record<string, unknown>),
     },
   } as unknown as Window['settings']
+
+  try {
+    Object.freeze(window.settings)
+  } catch {
+  }
 }
 
 initRuntimeSettings()

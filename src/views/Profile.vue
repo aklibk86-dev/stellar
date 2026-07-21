@@ -311,7 +311,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NForm, NFormItem, NInput, NButton, NSwitch, NAvatar, NAlert, NModal } from 'naive-ui'
+import { useMessage, useDialog, NForm, NFormItem, NInput, NButton, NSwitch, NAvatar, NAlert, NModal } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
 import { userApi } from '@/api'
 import { formatDate } from '@/utils/format'
@@ -487,6 +487,20 @@ const handleToggleNotify = async (key: 'remind_expire' | 'remind_traffic', value
 
 // ===== 重置令牌 =====
 const handleResetToken = async () => {
+  const confirmed = await new Promise<boolean>((resolve) => {
+    const d = useDialog()
+    d.warning({
+      title: t('profile.resetToken'),
+      content: t('profile.resetTokenConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+      onClose: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+
   resetting.value = true
   newToken.value = ''
   try {

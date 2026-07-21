@@ -127,13 +127,14 @@ html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .order-card,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .stat-chip,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .doc-item,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .category-item,
-html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .category-bar,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .doc-list,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .doc-content,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .ticket-list-panel,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .ticket-detail-panel,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .ticket-item,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .client-item,
+html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .traffic-heatmap-card,
 html.stellar-glass-on:not(.stellar-route-landing):not(.dark) .notice-list-item {
   background-color: rgba(255, 255, 255, 0.88) !important;
 }
@@ -242,11 +243,13 @@ html.stellar-glass-on:not(.stellar-route-landing) .notice-list-item,
 html.stellar-glass-on:not(.stellar-route-landing) .doc-item,
 html.stellar-glass-on:not(.stellar-route-landing) .category-item,
 html.stellar-glass-on:not(.stellar-route-landing) .client-item,
+html.stellar-glass-on:not(.stellar-route-landing) .traffic-heatmap-card,
 html.stellar-glass-on:not(.stellar-route-landing) .auth-container,
 /* 文档中心 */
-html.stellar-glass-on:not(.stellar-route-landing) .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing) .category-bar,
 html.stellar-glass-on:not(.stellar-route-landing) .doc-list,
 html.stellar-glass-on:not(.stellar-route-landing) .doc-content,
+html.stellar-glass-on:not(.stellar-route-landing) .nav-grid-item,
 /* 工单系统 */
 html.stellar-glass-on:not(.stellar-route-landing) .ticket-list-panel,
 html.stellar-glass-on:not(.stellar-route-landing) .ticket-detail-panel,
@@ -304,11 +307,13 @@ html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .doc-item,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .category-item,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .client-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .traffic-heatmap-card,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .auth-container,
 /* 文档中心 */
-html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .category-bar,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .doc-list,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .doc-content,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .nav-grid-item,
 /* 工单系统 */
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .ticket-list-panel,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-light:1"] .ticket-detail-panel,
@@ -342,11 +347,13 @@ html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .doc-item,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .category-item,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .client-item,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .traffic-heatmap-card,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .auth-container,
 /* 文档中心 */
-html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .category-sidebar,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .category-bar,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .doc-list,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .doc-content,
+html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .nav-grid-item,
 /* 工单系统 */
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .ticket-list-panel,
 html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border-style:none"] .ticket-detail-panel,
@@ -374,7 +381,7 @@ html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border
   html.stellar-glass-on:not(.stellar-route-landing) .service-card,
   html.stellar-glass-on:not(.stellar-route-landing) .auth-container,
   /* 文档中心 */
-  html.stellar-glass-on:not(.stellar-route-landing) .category-sidebar,
+  html.stellar-glass-on:not(.stellar-route-landing) .category-bar,
   html.stellar-glass-on:not(.stellar-route-landing) .doc-list,
   html.stellar-glass-on:not(.stellar-route-landing) .doc-content,
   /* 工单系统 */
@@ -387,4 +394,57 @@ html.stellar-glass-on:not(.stellar-route-landing)[style*="--stellar-glass-border
   html.stellar-glass-on:not(.stellar-route-landing) .stat-chip {
       background-color: var(--stellar-bg-card);
     }
+}
+
+/* ============================================================
+   Naive UI 下拉菜单全局样式（用户头像菜单）
+   匹配整体 UI 风格
+   ============================================================ */
+.n-dropdown-menu {
+  background: var(--stellar-bg-card) !important;
+  border: 1px solid var(--stellar-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12) !important;
+  padding: 6px !important;
+  min-width: 180px !important;
+}
+
+.n-dropdown-menu-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: var(--stellar-text) !important;
+  transition: background 0.2s !important;
+  margin: 2px !important;
+}
+
+.n-dropdown-menu-item:hover {
+  background: var(--stellar-bg-hover) !important;
+}
+
+.n-dropdown-menu-item:active {
+  background: var(--stellar-bg-active) !important;
+}
+
+.n-dropdown-menu-item .n-icon {
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--stellar-text-secondary) !important;
+}
+
+.n-dropdown-menu-item:hover .n-icon {
+  color: var(--stellar-text) !important;
+}
+
+.n-dropdown-menu-divider {
+  margin: 6px 8px !important;
+  border-color: var(--stellar-border-light) !important;
+}
+
+.n-dropdown-menu-item--disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
 }

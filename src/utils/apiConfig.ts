@@ -117,5 +117,5 @@ export const buildProxyUrl = (apiPath = '') => {
 
   if (mode === 'query') return `${proxyPath}?target=${encodeURIComponent(target)}`
   if (mode === 'plainPath') return `${proxyPath}${ensureStartSlash(apiPath)}`
-  return `${proxyPath}/${btoa(unescape(encodeURIComponent(target)))}`
+  return `${proxyPath}/${btoa(encodeURIComponent(target))}`
 }

@@ -70,8 +70,11 @@
         v-for="server in filteredServers"
         :key="`${server.type}-${server.id}`"
         class="server-card"
-        :class="{ 'is-offline': !server.is_available }"
+        :class="server.is_available ? 'is-online' : 'is-offline'"
       >
+        <!-- 左侧状态条 -->
+        <div class="status-bar" :class="server.is_available ? 'online' : 'offline'" />
+
         <!-- 卡片头部：图标 + 名称 + 状态 -->
         <div class="card-header-area">
           <div class="server-icon" :style="typeIconStyle(server.type)">
@@ -88,7 +91,7 @@
           </div>
           <span class="status-badge" :class="server.is_available ? 'online' : 'offline'">
             <span class="status-pill" />
-            {{ server.is_available ? t('server.online') : t('server.offline') }}
+            <span class="status-text">{{ server.is_available ? t('server.online') : t('server.offline') }}</span>
           </span>
         </div>
 
@@ -288,6 +291,7 @@ onMounted(fetchData)
 }
 
 .server-card {
+  position: relative;
   background: var(--stellar-bg-card);
   border: 1px solid var(--stellar-border);
   border-radius: 12px;
@@ -302,8 +306,49 @@ onMounted(fetchData)
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
+
+/* 左侧状态条: 在线绿色 / 离线红色, 4px 宽全高度 */
+.status-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 1;
+}
+.status-bar.online {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+.status-bar.offline {
+  background: repeating-linear-gradient(
+    180deg,
+    #ef4444 0,
+    #ef4444 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* 在线卡片: 浅绿描边强化在线感 */
+.server-card.is-online {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.server-card.is-online:hover {
+  border-color: #10b981;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15);
+}
+
+/* 离线卡片: 红色描边 + 轻度淡化 */
 .server-card.is-offline {
-  opacity: 0.65;
+  border-color: rgba(239, 68, 68, 0.35);
+  opacity: 0.78;
+}
+.server-card.is-offline:hover {
+  border-color: #ef4444;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
+  opacity: 1;
 }
 
 /* 卡片头部 */
@@ -351,32 +396,57 @@ onMounted(fetchData)
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
   flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
 .status-badge .status-pill {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-badge .status-text {
+  line-height: 1;
 }
 .status-badge.online {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 .status-badge.online .status-pill {
   background: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  animation: pulse-online 1.6s ease-in-out infinite;
+}
+@keyframes pulse-online {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.35);
+    transform: scale(1.15);
+  }
 }
 .status-badge.offline {
-  background: rgba(148, 163, 184, 0.12);
-  color: #94a3b8;
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 .status-badge.offline .status-pill {
-  background: #94a3b8;
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+:global(html.dark) .status-badge.online {
+  color: #34d399;
+}
+:global(html.dark) .status-badge.offline {
+  color: #f87171;
 }
 
 /* 统计区 */

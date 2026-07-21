@@ -43,9 +43,74 @@
     <div class="chart-card">
       <div class="card-header">
         <h3 class="card-title">{{ t('traffic.trafficUsage') }}</h3>
+        <div class="time-range-switch">
+          <button
+            v-for="opt in timeRangeOptions"
+            :key="opt.value"
+            :class="['range-btn', { active: timeRange === opt.value }]"
+            @click="timeRange = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
       <div class="chart-wrap">
         <v-chart :option="chartOption" autoresize class="traffic-chart" />
+      </div>
+    </div>
+
+    <!-- 流量使用热力图 -->
+    <div class="chart-card traffic-heatmap-card">
+      <div class="card-header">
+        <div class="card-header-text">
+          <h3 class="card-title">{{ t('dashboard.trafficHeatmap') }}</h3>
+          <span class="card-subtitle">{{ t('dashboard.trafficHeatmapDesc') }}</span>
+        </div>
+      </div>
+      <div class="heatmap-body">
+        <div v-if="heatmapLoading" class="heatmap-loading">
+          <span class="loading-dot"></span>
+          <span>{{ t('common.loading') }}</span>
+        </div>
+        <div v-else-if="heatmapData.length === 0" class="heatmap-empty">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <p>{{ t('dashboard.heatmapEmpty') }}</p>
+        </div>
+        <template v-else>
+          <v-chart :option="heatmapOption" autoresize class="heatmap-chart" />
+          <div class="heatmap-legend">
+            <span class="legend-label">{{ t('dashboard.trafficLess') }}</span>
+            <span class="legend-block" style="background: rgba(59,130,246,0.08);"></span>
+            <span class="legend-block" style="background: rgba(59,130,246,0.25);"></span>
+            <span class="legend-block" style="background: rgba(59,130,246,0.5);"></span>
+            <span class="legend-block" style="background: rgba(59,130,246,0.75);"></span>
+            <span class="legend-block" style="background: #3b82f6;"></span>
+            <span class="legend-label">{{ t('dashboard.trafficMore') }}</span>
+          </div>
+          <div class="heatmap-stats">
+            <div class="heatmap-stat">
+              <span class="stat-key">{{ t('dashboard.heatmapTotal') }}</span>
+              <span class="stat-val">{{ formatTraffic(heatmapTotal) }}</span>
+            </div>
+            <div class="heatmap-stat">
+              <span class="stat-key">{{ t('dashboard.heatmapAvg') }}</span>
+              <span class="stat-val">{{ formatTraffic(heatmapAvg) }}</span>
+            </div>
+            <div class="heatmap-stat">
+              <span class="stat-key">{{ t('dashboard.heatmapMax') }}</span>
+              <span class="stat-val">{{ formatTraffic(heatmapMax) }}</span>
+            </div>
+            <div class="heatmap-stat">
+              <span class="stat-key">{{ t('dashboard.heatmapDays') }}</span>
+              <span class="stat-val">{{ heatmapActiveDays }} / {{ heatmapTotalDays }}</span>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -77,12 +142,6 @@
           <p>{{ t('common.noData') }}</p>
         </div>
         <n-card v-else v-for="log in trafficLogs" :key="log.id" class="log-card" :bordered="false">
-          <div class="card-top">
-            <span class="card-server">{{ log.server_name || '-' }}</span>
-            <n-tag :type="getRateTagType(log.server_rate)" size="small" round>
-              {{ log.server_rate || '1' }}x
-            </n-tag>
-          </div>
           <div class="card-rows">
             <div class="card-row">
               <span class="card-label">{{ t('traffic.upload') }}</span>
@@ -155,8 +214,21 @@ const chartDates = ref<string[]>([])
 const chartUploadData = ref<number[]>([])
 const chartDownloadData = ref<number[]>([])
 
+// 热力图数据(复用 fetchChartData 拉取的全部日志)
+const heatmapLoading = ref(false)
+const heatmapRawLogs = ref<TrafficLog[]>([])
+
 // 通过 ref 传入图表文字颜色(跟随主题)
 const chartTextColor = ref('#9ca3af')
+
+// 时间范围选项
+type TimeRange = '7d' | '30d' | '12m'
+const timeRange = ref<TimeRange>('7d')
+const timeRangeOptions = [
+  { value: '7d' as const, label: t('traffic.range7d') },
+  { value: '30d' as const, label: t('traffic.range30d') },
+  { value: '12m' as const, label: t('traffic.range12m') },
+]
 
 // ===== 计算属性 =====
 const todayTotal = computed(() => (stat.value?.u || 0) + (stat.value?.d || 0))
@@ -229,44 +301,170 @@ const chartOption = computed(() => {
   }
 })
 
-// ===== 工具函数 =====
-type TagType = 'default' | 'primary' | 'info' | 'success' | 'warning' | 'error'
-
-const getRateTagType = (rate: string | undefined): TagType => {
-  const r = parseFloat(rate || '1')
-  if (isNaN(r)) return 'default'
-  if (r > 1) return 'warning'
-  if (r < 1) return 'success'
-  return 'default'
+// ===== 流量使用热力图 =====
+// 时间戳转 YYYY-MM-DD(本地时区)
+const toDateKey = (ts: number): string => {
+  const d = new Date(ts * 1000)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
+// 按天聚合流量(每天 u + d 求和,单位字节)
+const heatmapData = computed<[string, number][]>(() => {
+  const map = new Map<string, number>()
+  for (const log of heatmapRawLogs.value) {
+    const key = toDateKey(log.record_at)
+    const bytes = (log.u || 0) + (log.d || 0)
+    map.set(key, (map.get(key) || 0) + bytes)
+  }
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+})
+
+const heatmapTotal = computed(() => heatmapData.value.reduce((s, [, v]) => s + v, 0))
+const heatmapMax = computed(() => heatmapData.value.reduce((m, [, v]) => Math.max(m, v), 0))
+const heatmapAvg = computed(() => {
+  const n = heatmapData.value.length
+  return n > 0 ? Math.floor(heatmapTotal.value / n) : 0
+})
+const heatmapActiveDays = computed(() => heatmapData.value.length)
+
+// 时间范围: 最近 6 个月(含今天)
+const heatmapRange = computed<[string, string]>(() => {
+  const end = new Date()
+  const start = new Date(end)
+  start.setMonth(start.getMonth() - 5)
+  start.setDate(1)
+  return [toDateKey(Math.floor(start.getTime() / 1000)), toDateKey(Math.floor(end.getTime() / 1000))]
+})
+
+const heatmapTotalDays = computed(() => {
+  const [s, e] = heatmapRange.value
+  const ms = new Date(e).getTime() - new Date(s).getTime()
+  return Math.floor(ms / 86400000) + 1
+})
+
+// visualMap 最大值(向上取整到合理刻度)
+const heatmapVMax = computed(() => {
+  const mx = heatmapMax.value
+  if (mx <= 0) return 1024 * 1024 * 100
+  const mb = mx / (1024 * 1024)
+  if (mb < 1) return 1024 * 1024
+  if (mb < 10) return 10 * 1024 * 1024
+  if (mb < 100) return 100 * 1024 * 1024
+  if (mb < 1024) return 1024 * 1024 * 1024
+  return Math.ceil(mb / 1024) * 1024 * 1024 * 1024
+})
+
+const heatmapOption = computed(() => {
+  const isDark = appStore.isDark
+  return {
+    tooltip: {
+      formatter: (p: any) => {
+        const bytes = p.value[1] as number
+        return `${p.value[0]}<br/><b>${formatTraffic(bytes)}</b>`
+      },
+    },
+    visualMap: {
+      min: 0,
+      max: heatmapVMax.value,
+      show: false,
+      inRange: {
+        color: isDark
+          ? ['rgba(59,130,246,0.08)', 'rgba(59,130,246,0.3)', 'rgba(59,130,246,0.6)', '#3b82f6', '#2563eb']
+          : ['rgba(59,130,246,0.08)', 'rgba(59,130,246,0.25)', 'rgba(59,130,246,0.5)', 'rgba(59,130,246,0.8)', '#2563eb'],
+      },
+    },
+    calendar: {
+      top: 30,
+      left: 40,
+      right: 20,
+      bottom: 30,
+      range: heatmapRange.value,
+      cellSize: ['auto', 13],
+      itemStyle: {
+        borderWidth: 2,
+        borderColor: isDark ? 'rgba(26,29,36,0.8)' : '#fff',
+        color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.025)',
+      },
+      splitLine: { show: false },
+      yearLabel: { show: false },
+      monthLabel: {
+        nameMap: 'EN',
+        color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
+        fontSize: 11,
+        margin: 8,
+      },
+      dayLabel: {
+        firstDay: 1,
+        nameMap: 'EN',
+        color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)',
+        fontSize: 10,
+      },
+    },
+    series: [
+      {
+        type: 'heatmap',
+        coordinateSystem: 'calendar',
+        data: heatmapData.value,
+      },
+    ],
+  }
+})
+
+// ===== 工具函数 =====
 const GB = 1024 * 1024 * 1024
 
 // 构建最近 7 天趋势数据
 const buildChartData = (logs: TrafficLog[]) => {
   const now = new Date()
-  const days: { key: string; label: string; upload: number; download: number }[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(now.getDate() - i)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const label = `${d.getMonth() + 1}/${d.getDate()}`
-    days.push({ key, label, upload: 0, download: 0 })
-  }
-  const dayMap = new Map(days.map((d) => [d.key, d]))
-  logs.forEach((log) => {
-    if (!log.record_at) return
-    const date = new Date(log.record_at * 1000)
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-    const entry = dayMap.get(key)
-    if (entry) {
-      entry.upload += log.u || 0
-      entry.download += log.d || 0
+  const entries: { key: string; label: string; upload: number; download: number }[] = []
+  
+  if (timeRange.value === '12m') {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now)
+      d.setMonth(now.getMonth() - i)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`
+      entries.push({ key, label, upload: 0, download: 0 })
     }
-  })
-  chartDates.value = days.map((d) => d.label)
-  chartUploadData.value = days.map((d) => +(d.upload / GB).toFixed(2))
-  chartDownloadData.value = days.map((d) => +(d.download / GB).toFixed(2))
+    const monthMap = new Map(entries.map((e) => [e.key, e]))
+    logs.forEach((log) => {
+      if (!log.record_at) return
+      const date = new Date(log.record_at * 1000)
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const entry = monthMap.get(key)
+      if (entry) {
+        entry.upload += log.u || 0
+        entry.download += log.d || 0
+      }
+    })
+  } else {
+    const daysCount = timeRange.value === '30d' ? 30 : 7
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(now.getDate() - i)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const label = `${d.getMonth() + 1}/${d.getDate()}`
+      entries.push({ key, label, upload: 0, download: 0 })
+    }
+    const dayMap = new Map(entries.map((e) => [e.key, e]))
+    logs.forEach((log) => {
+      if (!log.record_at) return
+      const date = new Date(log.record_at * 1000)
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      const entry = dayMap.get(key)
+      if (entry) {
+        entry.upload += log.u || 0
+        entry.download += log.d || 0
+      }
+    })
+  }
+  
+  chartDates.value = entries.map((e) => e.label)
+  chartUploadData.value = entries.map((e) => +(e.upload / GB).toFixed(2))
+  chartDownloadData.value = entries.map((e) => +(e.download / GB).toFixed(2))
 }
 
 // 读取主题色到 ref
@@ -309,20 +507,36 @@ const fetchTrafficLogs = async () => {
   }
 }
 
-// 拉取较大范围的日志用于构建 7 天趋势图
+// 拉取较大范围的日志用于构建 7 天趋势图 + 热力图(分页拉取,覆盖近 6 个月)
 const fetchChartData = async () => {
+  heatmapLoading.value = true
   try {
-    const res = await userApi.getTrafficLog(1, 500)
-    const payload: any = res.data
-    const list: TrafficLog[] = Array.isArray(payload)
-      ? payload
-      : payload && Array.isArray(payload.data)
-        ? payload.data
-        : []
-    buildChartData(list)
+    const allLogs: TrafficLog[] = []
+    let page = 1
+    const maxPages = 20 // 安全上限,避免死循环
+    while (page <= maxPages) {
+      const res = await userApi.getTrafficLog(page, 100)
+      const resp = res.data as any
+      const list: TrafficLog[] = Array.isArray(resp?.data)
+        ? resp.data
+        : Array.isArray(resp)
+          ? resp
+          : []
+      if (list.length === 0) break
+      allLogs.push(...list)
+      const lastPage = resp?.last_page
+      if (lastPage && page >= lastPage) break
+      if (list.length < 100) break
+      page++
+    }
+    heatmapRawLogs.value = allLogs
+    buildChartData(allLogs)
   } catch (err) {
     console.error('[Traffic] 获取流量日志失败:', err)
+    heatmapRawLogs.value = []
     buildChartData([])
+  } finally {
+    heatmapLoading.value = false
   }
 }
 
@@ -333,23 +547,6 @@ const handlePageChange = (page: number) => {
 
 // ===== 表格列 =====
 const columns = computed<DataTableColumns<TrafficLog>>(() => [
-  {
-    title: t('traffic.serverName'),
-    key: 'server_name',
-    ellipsis: { tooltip: true },
-    render: (row) => h('span', { class: 'cell-server' }, row.server_name || '-'),
-  },
-  {
-    title: t('traffic.serverRate'),
-    key: 'server_rate',
-    width: 100,
-    render: (row) =>
-      h(
-        NTag,
-        { type: getRateTagType(row.server_rate), size: 'small', round: true },
-        { default: () => `${row.server_rate || '1'}x` },
-      ),
-  },
   {
     title: t('traffic.upload'),
     key: 'u',
@@ -377,6 +574,14 @@ watch(
   () => appStore.isDark,
   () => {
     nextTick(readChartTheme)
+  },
+)
+
+// 时间范围切换时重新构建图表数据
+watch(
+  timeRange,
+  () => {
+    buildChartData(heatmapRawLogs.value)
   },
 )
 
@@ -472,6 +677,34 @@ onMounted(async () => {
   padding: 16px 20px;
   border-bottom: 1px solid var(--stellar-border-light);
 }
+
+.time-range-switch {
+  display: flex;
+  gap: 4px;
+  background: var(--stellar-bg-secondary);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.range-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--stellar-text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.range-btn:hover {
+  color: var(--stellar-text);
+}
+
+.range-btn.active {
+  background: var(--stellar-primary);
+  color: #fff;
+}
 .card-title {
   font-size: 15px;
   font-weight: 600;
@@ -484,6 +717,97 @@ onMounted(async () => {
 .traffic-chart {
   height: 320px;
   width: 100%;
+}
+
+/* 热力图卡片 */
+.traffic-heatmap-card .card-header-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.traffic-heatmap-card .card-subtitle {
+  font-size: 12px;
+  color: var(--stellar-text-muted);
+  font-weight: 400;
+}
+.heatmap-body {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.heatmap-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--stellar-text-muted);
+  font-size: 13px;
+}
+.heatmap-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  color: var(--stellar-text-muted);
+}
+.heatmap-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+.heatmap-chart { width: 100%; height: 200px; }
+.heatmap-chart :deep(.echarts) { width: 100% !important; height: 200px !important; }
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--stellar-text-muted);
+}
+.heatmap-legend .legend-block {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+.heatmap-legend .legend-label {
+  margin: 0 4px;
+}
+.heatmap-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--stellar-border-light);
+}
+.heatmap-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: var(--stellar-bg-hover);
+}
+.heatmap-stat .stat-key {
+  font-size: 11px;
+  color: var(--stellar-text-muted);
+  line-height: 1.2;
+}
+.heatmap-stat .stat-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--stellar-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
 }
 
 /* 表格容器 */
@@ -669,6 +993,19 @@ onMounted(async () => {
   }
   .traffic-chart {
     height: 200px;
+  }
+  .heatmap-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .heatmap-stat .stat-val {
+    font-size: 13px;
+  }
+  .heatmap-chart {
+    height: 180px;
+  }
+  .heatmap-chart :deep(.echarts) {
+    height: 180px !important;
   }
 }
 </style>

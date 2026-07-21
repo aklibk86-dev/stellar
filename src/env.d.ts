@@ -73,5 +73,7 @@ interface Window {
       /** 圆角，单位 px */
       radius: number
     }
+    /** 文档中心分类侧边栏样式：'list' 平铺列表 | 'nav' 上下导航式 */
+    knowledge_sidebar_style?: 'list' | 'nav'
   }
 }

@@ -10,9 +10,15 @@ import {
   normalizeGuestConfig,
 } from '@/utils/backend'
 
+function isValidToken(token: string): boolean {
+  return token.length >= 20 && /^[A-Za-z0-9_\-.:]+$/.test(token)
+}
+
 export const useUserStore = defineStore('user', () => {
-  const authToken = ref<string>(localStorage.getItem('stellar_auth_token') || '')
-  const subscribeToken = ref<string>(localStorage.getItem('stellar_subscribe_token') || '')
+  const rawAuthToken = localStorage.getItem('stellar_auth_token') || ''
+  const rawSubToken = localStorage.getItem('stellar_subscribe_token') || ''
+  const authToken = ref<string>(isValidToken(rawAuthToken) ? rawAuthToken : '')
+  const subscribeToken = ref<string>(isValidToken(rawSubToken) ? rawSubToken : '')
   const user = ref<User | null>(null)
   const guestConfig = ref<GuestConfig | null>(null)
 

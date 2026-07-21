@@ -239,6 +239,7 @@ import {
 import { userApi, normalizeListData } from '@/api'
 import type { Order, Plan, PaymentMethod } from '@/api/types'
 import { formatDate, formatPrice, formatPeriod } from '@/utils/format'
+import { sanitizeHtml } from '@/utils/safe'
 
 const route = useRoute()
 const router = useRouter()
@@ -510,11 +511,34 @@ const getCheckoutErrorMessage = (data: unknown) => {
   return t('order.paymentUnavailable')
 }
 
+const PAYMENT_DOMAIN_WHITELIST = [
+  'paypal.com', 'www.paypal.com',
+  'checkout.stripe.com',
+  'js.stripe.com',
+  'mapi.alipay.com',
+  'openapi.alipay.com',
+  'api.xunhupay.com',
+  'pay.xunhupay.com',
+]
+
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value)
+
+const isAllowedPaymentDomain = (url: string): boolean => {
+  try {
+    const parsed = new URL(url)
+    return PAYMENT_DOMAIN_WHITELIST.some(domain => parsed.hostname === domain || parsed.hostname.endsWith('.' + domain))
+  } catch {
+    return false
+  }
+}
 
 const openPaymentData = (data: string) => {
   if (isHttpUrl(data)) {
-    window.location.href = data
+    if (isAllowedPaymentDomain(data)) {
+      window.location.href = data
+    } else {
+      window.open(data, '_blank')
+    }
     return
   }
 
@@ -522,13 +546,13 @@ const openPaymentData = (data: string) => {
     const paymentWindow = window.open('', '_blank')
     if (paymentWindow) {
       paymentWindow.document.open()
-      paymentWindow.document.write(data)
+      paymentWindow.document.write(sanitizeHtml(data))
       paymentWindow.document.close()
       return
     }
   }
 
-  const blob = new Blob([data], { type: 'text/html;charset=utf-8' })
+  const blob = new Blob([sanitizeHtml(data)], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank')
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000)

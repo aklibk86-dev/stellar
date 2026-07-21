@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
     },
     base: cdnUrl || base,
     build: {
+      sourcemap: false,
       outDir: resolve(__dirname, 'dist'),
       emptyOutDir: true,
       assetsDir: 'assets',
@@ -52,9 +53,14 @@ export default defineConfig(({ mode }) => {
         },
       },
       chunkSizeWarningLimit: 2000,
+      minify: 'esbuild',
+      esbuild: {
+        drop: ['console', 'debugger'],
+      },
     },
-    server: {
-      port: 3100,
-    },
+    // server: {
+    //   host: '0.0.0.0',
+    //   port: 3100,
+    // },
   }
 })

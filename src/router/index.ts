@@ -104,6 +104,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'knowledge', icon: 'book' },
       },
       {
+        path: 'knowledge/:id',
+        name: 'knowledge-detail',
+        component: () => import('@/views/KnowledgeDetail.vue'),
+        meta: { title: 'knowledge' },
+      },
+      {
         path: 'traffic',
         name: 'traffic',
         component: () => import('@/views/Traffic.vue'),
@@ -175,6 +181,11 @@ router.beforeEach(async (to, _from, next) => {
 
   if (!userStore.user) {
     await userStore.fetchUser()
+  }
+
+  if (!userStore.isLoggedIn) {
+    next({ name: 'login', query: { redirect: to.fullPath } })
+    return
   }
 
   next()

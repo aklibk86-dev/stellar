@@ -20,19 +20,6 @@
     </template>
 
     <div class="subscribe-import">
-      <section class="url-card">
-        <div class="url-card-copy">
-          <span class="eyebrow">{{ t('dashboard.copyUrl') }}</span>
-          <p>{{ t('dashboard.copyUrlDesc') }}</p>
-        </div>
-        <div class="url-input-wrap">
-          <n-input :value="normalizedSubscribeUrl" readonly size="large" class="url-input" />
-          <n-button type="primary" size="large" :disabled="!normalizedSubscribeUrl" @click="copySubscribeUrl">
-            {{ t('common.copy') }}
-          </n-button>
-        </div>
-      </section>
-
       <div class="content-grid">
         <section class="client-panel">
           <div class="panel-header">
@@ -103,9 +90,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NModal, NInput, NButton } from 'naive-ui'
+import { useMessage, NModal, NButton } from 'naive-ui'
 import StellarIcon from '@/components/StellarIcon.vue'
 import { getPublicPath } from '@/utils/settings'
+import QRCode from 'qrcode'
 
 const props = defineProps<{
   show: boolean
@@ -140,9 +128,22 @@ const urlSafeBase64 = computed(() => {
   }
 })
 
-const qrCodeUrl = computed(
-  () => `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodedUrl.value}`,
-)
+const qrCodeUrl = ref('')
+
+watch(normalizedSubscribeUrl, async (url) => {
+  if (!url) {
+    qrCodeUrl.value = ''
+    return
+  }
+  try {
+    qrCodeUrl.value = await QRCode.toDataURL(url, {
+      width: 240,
+      margin: 2,
+    })
+  } catch {
+    qrCodeUrl.value = ''
+  }
+}, { immediate: true })
 
 type Platform = 'ios' | 'android' | 'windows' | 'mac'
 
@@ -247,38 +248,6 @@ const countClients = (platform: Platform) =>
 const getPlatformLabel = (platform: Platform) =>
   platformTabs.find((item) => item.key === platform)?.label || platform
 
-const fallbackCopyText = (text: string) => {
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.setAttribute('readonly', 'readonly')
-  textarea.style.position = 'fixed'
-  textarea.style.left = '-9999px'
-  document.body.appendChild(textarea)
-  textarea.select()
-  const copied = document.execCommand('copy')
-  document.body.removeChild(textarea)
-  return copied
-}
-
-const copyUrl = async (url: string) => {
-  if (!url) {
-    message.warning(t('dashboard.noSubscribeUrl'))
-    return
-  }
-  try {
-    if (navigator.clipboard?.writeText && window.isSecureContext) {
-      await navigator.clipboard.writeText(url)
-    } else if (!fallbackCopyText(url)) {
-      throw new Error('Copy failed')
-    }
-    message.success(t('common.copied'))
-  } catch {
-    message.error(t('common.failed'))
-  }
-}
-
-const copySubscribeUrl = () => copyUrl(normalizedSubscribeUrl.value)
-
 const importToClient = (client: Client) => {
   if (!normalizedSubscribeUrl.value) {
     message.warning(t('dashboard.noSubscribeUrl'))
@@ -311,11 +280,7 @@ const importToClient = (client: Client) => {
 .modal-heading p { margin: 3px 0 0; color: var(--stellar-text-muted); font-size: 12px; font-weight: 400; }
 
 .subscribe-import { display: flex; flex-direction: column; gap: 20px; }
-.url-card { display: grid; grid-template-columns: minmax(170px, .75fr) minmax(320px, 1.6fr); align-items: center; gap: 20px; padding: 18px; border: 1px solid var(--stellar-border-light); border-radius: 16px; background: linear-gradient(135deg, var(--stellar-primary-light), var(--stellar-bg-card)); }
-.eyebrow { display: block; color: var(--stellar-primary); font-size: 13px; font-weight: 700; }
-.url-card-copy p, .panel-header p, .qr-copy p { margin: 4px 0 0; color: var(--stellar-text-muted); font-size: 12px; line-height: 1.55; }
-.url-input-wrap { display: flex; gap: 10px; min-width: 0; }
-.url-input { min-width: 0; }
+.panel-header p, .qr-copy p { margin: 4px 0 0; color: var(--stellar-text-muted); font-size: 12px; line-height: 1.55; }
 
 .content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 20px; }
 .client-panel, .qr-panel { min-width: 0; border: 1px solid var(--stellar-border-light); border-radius: 18px; background: var(--stellar-bg-card); }

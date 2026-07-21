@@ -10,40 +10,48 @@
 
     <!-- 右侧:工具区 -->
     <div class="header-right">
+      <!-- 公告铃铛 -->
+      <NoticeBell />
+
       <!-- 主题切换 -->
       <button class="header-btn" @click="appStore.toggleDark()" :title="appStore.isDark ? t('common.toggleLight') : t('common.toggleDark')">
         <StellarIcon :name="appStore.isDark ? 'sun' : 'moon'" :size="20" />
       </button>
 
       <!-- 语言切换 -->
-      <n-dropdown :options="localeOptions" @select="handleLocaleChange">
-        <button class="header-btn">
-          <StellarIcon name="language" :size="20" />
-        </button>
-      </n-dropdown>
+      <StellarDropdown :options="localeOptions" @select="handleLocaleChange">
+        <template #trigger>
+          <button class="header-btn">
+            <StellarIcon name="language" :size="20" />
+          </button>
+        </template>
+      </StellarDropdown>
 
       <!-- 用户头像/菜单 -->
-      <n-dropdown :options="userMenuOptions" @select="handleUserMenu">
-        <div class="user-info">
-          <div class="user-avatar">
-            <img v-if="userStore.user?.avatar_url" :src="userStore.user.avatar_url" alt="avatar" />
-            <span v-else>{{ userStore.user?.email?.charAt(0).toUpperCase() || 'U' }}</span>
+      <StellarDropdown :options="userMenuOptions" @select="handleUserMenu">
+        <template #trigger>
+          <div class="user-info">
+            <div class="user-avatar">
+              <img v-if="userStore.user?.avatar_url" :src="userStore.user.avatar_url" alt="avatar" />
+              <span v-else>{{ userStore.user?.email?.charAt(0).toUpperCase() || 'U' }}</span>
+            </div>
+            <span class="user-email hidden md:block">{{ userStore.user?.email || 'User' }}</span>
           </div>
-          <span class="user-email hidden md:block">{{ userStore.user?.email || 'User' }}</span>
-        </div>
-      </n-dropdown>
+        </template>
+      </StellarDropdown>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NDropdown } from 'naive-ui'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import StellarIcon from '@/components/StellarIcon.vue'
+import NoticeBell from '@/components/NoticeBell.vue'
+import StellarDropdown from '@/components/StellarDropdown.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,9 +60,13 @@ const appStore = useAppStore()
 const userStore = useUserStore()
 
 const currentTitle = computed(() => {
-  const name = route.name as string
-  if (!name) return ''
-  return t(`nav.${name}`)
+  // 优先使用 meta.title (子路由可继承父路由标题,如 knowledge-detail -> knowledge)
+  // 回退到 route.name
+  const titleKey = (route.meta.title as string) || (route.name as string)
+  if (!titleKey) return ''
+  const translated = t(`nav.${titleKey}`)
+  // 翻译失败时(返回值等于 key 本身)回退到空字符串,避免显示 "nav.xxx"
+  return translated === `nav.${titleKey}` ? '' : translated
 })
 
 // 根据屏幕尺寸选择侧边栏切换方式
@@ -71,12 +83,10 @@ const localeOptions = [
   { label: 'English', key: 'en-US' },
 ]
 
-const renderMenuIcon = (name: string) => () => h(StellarIcon, { name, size: 16 })
-
 const userMenuOptions = computed(() => [
-  { label: t('nav.profile'), key: 'profile', icon: renderMenuIcon('user') },
-  { type: 'divider', key: 'd1' },
-  { label: t('common.logout'), key: 'logout', icon: renderMenuIcon('logout') },
+  { label: t('nav.profile'), key: 'profile' },
+  { type: 'divider' as const, key: 'd1' },
+  { label: t('common.logout'), key: 'logout' },
 ])
 
 const handleLocaleChange = (key: string) => {
