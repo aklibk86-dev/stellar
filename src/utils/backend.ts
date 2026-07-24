@@ -8,7 +8,8 @@ import { getApiConfig } from './apiConfig'
 export type BackendType = 'xboard' | 'v2board' | 'auto'
 
 // 运行时实际生效的后端类型，auto 模式下探测完成后会被锁定
-let resolvedBackend: 'xboard' | 'v2board' | null = null
+const STORAGE_KEY = 'stellar_backend_type'
+let resolvedBackend: 'xboard' | 'v2board' | null = localStorage.getItem(STORAGE_KEY) as 'xboard' | 'v2board' | null
 
 /**
  * 从 env.js 读取用户配置的后端类型
@@ -37,6 +38,7 @@ export function getBackendType(): 'xboard' | 'v2board' {
  */
 export function setDetectedBackend(type: 'xboard' | 'v2board') {
   resolvedBackend = type
+  localStorage.setItem(STORAGE_KEY, type)
 }
 
 /**

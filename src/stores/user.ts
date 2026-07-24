@@ -10,15 +10,9 @@ import {
   normalizeGuestConfig,
 } from '@/utils/backend'
 
-function isValidToken(token: string): boolean {
-  return token.length >= 20 && /^[A-Za-z0-9_\-.:]+$/.test(token)
-}
-
 export const useUserStore = defineStore('user', () => {
-  const rawAuthToken = localStorage.getItem('stellar_auth_token') || ''
-  const rawSubToken = localStorage.getItem('stellar_subscribe_token') || ''
-  const authToken = ref<string>(isValidToken(rawAuthToken) ? rawAuthToken : '')
-  const subscribeToken = ref<string>(isValidToken(rawSubToken) ? rawSubToken : '')
+  const authToken = ref<string>(localStorage.getItem('stellar_auth_token')?.trim() || '')
+  const subscribeToken = ref<string>(localStorage.getItem('stellar_subscribe_token')?.trim() || '')
   const user = ref<User | null>(null)
   const guestConfig = ref<GuestConfig | null>(null)
 
@@ -48,8 +42,11 @@ export const useUserStore = defineStore('user', () => {
         const res = await userApi.getInfo()
         user.value = normalizeUser(res.data)
         return res.data
-      } catch {
-        logout()
+      } catch (err: any) {
+        // 仅当明确返回 401 时才登出，其他错误不清除登录状态
+        if (err?.status === 401) {
+          logout()
+        }
         return null
       } finally {
         fetchUserPromise = null
@@ -110,9 +107,14 @@ export const useUserStore = defineStore('user', () => {
     try {
       await userApi.checkLogin()
       return true
-    } catch {
-      logout()
-      return false
+    } catch (err: any) {
+      // 仅当明确返回 401 时才登出，其他错误（如网络问题、后端探测未完成导致的 404）不清除登录状态
+      if (err?.status === 401) {
+        logout()
+        return false
+      }
+      // 其他错误不自动登出，保留 token 以便后续重试
+      return true
     }
   }
 

@@ -538,7 +538,9 @@ const fetchData = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 先完成后端配置获取（这会触发后端类型探测），再验证登录状态
+  await userStore.fetchGuestConfig()
   if (userStore.authToken) {
     userStore.checkLogin()
   }
