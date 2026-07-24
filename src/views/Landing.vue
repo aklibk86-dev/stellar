@@ -425,23 +425,52 @@ const faqList = [
 // 处理套餐数据
 const formatPrice = (cents: number | null): string => {
   if (!cents || cents === 0) return '0'
-  return (cents / 100).toFixed(0)
+  const price = cents / 100
+  return price.toFixed(price % 1 === 0 ? 0 : 2)
+}
+
+const formatTraffic = (bytes: number): string => {
+  if (bytes <= 0) return '0'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  let size = bytes
+  while (size >= 1024 && i < units.length - 1) {
+    size /= 1024
+    i++
+  }
+  return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i]
 }
 
 const displayPlans = computed(() => {
   if (plans.value.length === 0) return fallbackPlans
-  const sorted = [...plans.value].sort((a, b) => {
-    const pa = a.month_price || a.onetime_price || 0
-    const pb = b.month_price || b.onetime_price || 0
+  const sorted = [...plans.value].filter(p => p.show !== false && p.sell !== false).sort((a, b) => {
+    const pa = a.sort || a.month_price || a.onetime_price || 0
+    const pb = b.sort || b.month_price || b.onetime_price || 0
     return pa - pb
   })
   const top3 = sorted.slice(0, 3)
-  return top3.map((plan) => ({
-    id: plan.id,
-    name: plan.name,
-    displayPrice: formatPrice(plan.month_price || plan.onetime_price),
-    displayFeatures: plan.content ? plan.content.split('\n').filter(Boolean).slice(0, 5) : [],
-  }))
+  return top3.map((plan) => {
+    const features: string[] = []
+    if (plan.transfer_enable) {
+      features.push(`每月流量 ${formatTraffic(plan.transfer_enable)}`)
+    }
+    if (plan.speed_limit) {
+      features.push(`限速 ${formatTraffic(plan.speed_limit)}/s`)
+    } else {
+      features.push('不限速')
+    }
+    if (plan.device_limit) {
+      features.push(`${plan.device_limit} 台设备`)
+    } else {
+      features.push('不限设备')
+    }
+    return {
+      id: plan.id,
+      name: plan.name,
+      displayPrice: formatPrice(plan.month_price || plan.onetime_price),
+      displayFeatures: features,
+    }
+  })
 })
 
 // 方法
@@ -450,7 +479,7 @@ const goHome = () => {
 }
 
 const goPlans = () => {
-  router.push('/plan')
+  router.push('/plans')
 }
 
 const goDashboard = () => {
