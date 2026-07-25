@@ -13,6 +13,7 @@ scripts/
 .env
 .env.local
 .env.*.local
+.env.development
 !.env.example
 
 # Logs
