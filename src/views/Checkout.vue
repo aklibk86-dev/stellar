@@ -185,6 +185,7 @@ import { userApi } from '@/api'
 import type { Plan, PaymentMethod, Coupon } from '@/api/types'
 import { formatPrice } from '@/utils/format'
 import { renderRichContent, sanitizeHtml } from '@/utils/safe'
+import { normalizeCoupon } from '@/utils/backend'
 
 const route = useRoute()
 const router = useRouter()
@@ -264,7 +265,8 @@ const originalPrice = computed(() => {
 const couponDiscount = computed(() => {
   if (!couponData.value || !originalPrice.value) return 0
   if (couponData.value.type === 'percentage') {
-    return Math.floor(originalPrice.value * couponData.value.value / 100)
+    // 经过 normalizeCoupon 处理后，value 统一为小数（如 0.2 表示 20%）
+    return Math.floor(originalPrice.value * couponData.value.value)
   }
   return couponData.value.value
 })
@@ -284,7 +286,8 @@ const applyCoupon = async () => {
   couponLoading.value = true
   try {
     const res = await userApi.checkCoupon(couponCode.value)
-    couponData.value = res.data
+    // 使用 normalizeCoupon 统一处理不同后端的优惠券格式
+    couponData.value = normalizeCoupon(res.data)
     couponApplied.value = true
     message.success(t('plan.couponApplied'))
   } catch (err: any) {

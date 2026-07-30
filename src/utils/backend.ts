@@ -267,7 +267,7 @@ export function getApiPaths(): ApiPaths {
 // 字段适配：将不同后端的响应归一化为前端使用的统一结构
 // ============================================================
 
-import type { User, Subscribe, GuestConfig } from '@/api/types'
+import type { User, Subscribe, GuestConfig, Coupon } from '@/api/types'
 
 /**
  * 归一化用户信息字段
@@ -346,4 +346,33 @@ export function detectBackendFromGuestConfig(config: any): 'xboard' | 'v2board' 
   // 仅 v2board 的 is_recaptcha 字段
   if (config.is_recaptcha !== undefined && config.is_captcha === undefined) return 'v2board'
   return null
+}
+
+/**
+ * 归一化优惠券字段
+ * - xboard: type='fixed'|'percentage', percentage 的 value 为小数（如 0.2 表示 20%）
+ * - v2board: type=1|2, percentage 的 value 为整数（如 20 表示 20%）
+ * 统一输出: type 为字符串，percentage 的 value 为小数
+ */
+export function normalizeCoupon(raw: any): Coupon {
+  if (!raw) return raw
+  const backendType = getBackendType()
+
+  // v2board: type 是数字 (1=固定金额, 2=百分比)
+  if (backendType === 'v2board' || typeof raw.type === 'number') {
+    const isPercentage = raw.type === 2
+    return {
+      ...raw,
+      type: isPercentage ? 'percentage' : 'fixed',
+      // v2board 的 percentage value 是整数（如 20），需要转换为小数（如 0.2）
+      value: isPercentage && raw.value > 1 ? raw.value / 100 : raw.value,
+    } as Coupon
+  }
+
+  // xboard: type 是字符串，percentage 的 value 已经是小数
+  return {
+    ...raw,
+    type: raw.type === 'percentage' ? 'percentage' : 'fixed',
+    value: raw.value,
+  } as Coupon
 }

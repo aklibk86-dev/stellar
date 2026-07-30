@@ -254,8 +254,8 @@ export interface Notice {
 export interface Coupon {
   code: string
   name: string
-  type: string
-  value: number
+  type: 'fixed' | 'percentage'  // 统一格式：fixed=固定金额, percentage=百分比
+  value: number  // percentage 时为小数（如 0.2 表示 20%）
   limit_use: number | null
   limit_use_with_user: number | null
   limit_period: string[] | null
