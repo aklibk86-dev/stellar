@@ -322,53 +322,37 @@ const getCheckoutErrorMessage = (data: unknown) => {
   return t('order.paymentUnavailable')
 }
 
-const PAYMENT_DOMAIN_WHITELIST = [
-  'paypal.com', 'www.paypal.com',
-  'checkout.stripe.com',
-  'js.stripe.com',
-  'mapi.alipay.com',
-  'openapi.alipay.com',
-  'api.xunhupay.com',
-  'pay.xunhupay.com',
-]
-
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value)
-
-const isAllowedPaymentDomain = (url: string): boolean => {
-  try {
-    const parsed = new URL(url)
-    return PAYMENT_DOMAIN_WHITELIST.some(domain => parsed.hostname === domain || parsed.hostname.endsWith('.' + domain))
-  } catch {
-    return false
-  }
-}
 
 const openPaymentData = (data: string) => {
   if (isHttpUrl(data)) {
-    if (isAllowedPaymentDomain(data)) {
-      window.location.href = data
-    } else {
-      window.open(data, '_blank')
-    }
+    // 直接在当前页面跳转，避免浏览器弹窗拦截
+    window.location.href = data
     return
   }
 
   // 部分支付网关会直接返回 HTML 表单，而不是 URL
   if (/<form[\s\S]*<\/form>/i.test(data) || /<html[\s\S]*<\/html>/i.test(data)) {
-    const paymentWindow = window.open('', '_blank')
-    if (paymentWindow) {
-      paymentWindow.document.open()
-      paymentWindow.document.write(sanitizeHtml(data))
-      paymentWindow.document.close()
+    // 创建临时容器，解析并提交表单
+    const div = document.createElement('div')
+    div.innerHTML = sanitizeHtml(data)
+    document.body.appendChild(div)
+    // 自动提交第一个表单
+    const form = div.querySelector('form')
+    if (form) {
+      form.target = '_self'
+      form.submit()
       return
     }
+    // 如果没有表单，直接写入页面
+    document.body.innerHTML = sanitizeHtml(data)
+    return
   }
 
-  // 其他返回内容兜底在新窗口打开，避免破坏当前结算页
+  // 其他返回内容：使用 blob URL 在当前页面打开
   const blob = new Blob([sanitizeHtml(data)], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
-  window.open(url, '_blank')
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+  window.location.href = url
 }
 
 const loadCreatedOrder = async (tradeNo: string) => {
