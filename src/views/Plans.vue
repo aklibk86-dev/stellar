@@ -111,7 +111,7 @@
     </div>
 
     <!-- 套餐公告弹窗 -->
-    <n-modal :show="noticeModalVisible" preset="card" style="max-width: 560px;" @update:show="handleNoticeModalUpdate">
+    <n-modal :show="noticeModalVisible" preset="card" :style="{ maxWidth: '560px', width: 'calc(100vw - 24px)' }" @update:show="handleNoticeModalUpdate">
       <template #header>
         <div class="notice-modal-header">
           <span class="notice-modal-icon">
@@ -141,7 +141,7 @@
     </n-modal>
 
     <!-- 公告列表选择弹窗(手动打开时) -->
-    <n-modal :show="noticeListVisible" preset="card" :title="t('plan.announcementList')" style="max-width: 480px;" @update:show="(v: boolean) => noticeListVisible = v">
+    <n-modal :show="noticeListVisible" preset="card" :title="t('plan.announcementList')" :style="{ maxWidth: '480px', width: 'calc(100vw - 24px)' }" @update:show="(v: boolean) => noticeListVisible = v">
       <div class="notice-list-modal">
         <div
           v-for="notice in planNotices"
@@ -470,7 +470,7 @@ onMounted(async () => {
 .notice-tag.tag-plan { background: rgba(59,130,246,0.12); color: #3b82f6; }
 
 .notice-image { width: 100%; max-height: 260px; object-fit: cover; border-radius: 10px; border: 1px solid var(--stellar-border-light); }
-.notice-body { font-size: 14px; color: var(--stellar-text); line-height: 1.7; }
+.notice-body { font-size: 14px; color: var(--stellar-text); line-height: 1.7; overflow-wrap: break-word; word-break: break-word; overflow-x: hidden; }
 .notice-body :deep(h1) { font-size: 20px; font-weight: 700; margin: 16px 0 10px; }
 .notice-body :deep(h2) { font-size: 17px; font-weight: 700; margin: 14px 0 8px; }
 .notice-body :deep(h3) { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
@@ -484,7 +484,7 @@ onMounted(async () => {
 .notice-body :deep(pre code) { padding: 0; background: transparent; }
 .notice-body :deep(blockquote) { margin: 0 0 12px; padding: 10px 16px; border-left: 3px solid var(--stellar-primary); background: var(--stellar-bg-hover); border-radius: 0 8px 8px 0; }
 .notice-body :deep(img) { max-width: 100%; border-radius: 8px; }
-.notice-body :deep(table) { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
+.notice-body :deep(table) { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
 .notice-body :deep(th), .notice-body :deep(td) { padding: 8px 12px; border: 1px solid var(--stellar-border); text-align: left; }
 .notice-body :deep(th) { background: var(--stellar-bg-hover); font-weight: 600; }
 

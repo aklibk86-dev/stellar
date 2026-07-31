@@ -70,7 +70,7 @@
     </Transition>
 
     <!-- 公告详情弹窗 -->
-    <n-modal :show="modalVisible" preset="card" style="max-width: 600px;" @update:show="handleModalUpdate">
+    <n-modal :show="modalVisible" preset="card" :style="{ maxWidth: '600px', width: 'calc(100vw - 24px)' }" @update:show="handleModalUpdate">
       <template #header>
         <span class="notice-modal-title" :class="getNoticeTitleClass(selectedNotice)">{{ selectedNotice?.title }}</span>
       </template>
@@ -536,6 +536,27 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--stellar-text);
   line-height: 1.6;
+  /* 防止长 URL、图片、表格等内容溢出屏幕 */
+  overflow-wrap: break-word;
+  word-break: break-word;
+  overflow-x: hidden;
+}
+
+.notice-body :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.notice-body :deep(pre) {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.notice-body :deep(table) {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .notice-modal-footer {
@@ -561,7 +582,17 @@ onUnmounted(() => {
 /* 移动端 */
 @media (max-width: 640px) {
   .notice-dropdown {
-    width: 300px;
+    /* 固定定位到视口右侧，避免被父容器裁剪或超出屏幕 */
+    position: fixed;
+    top: 56px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+  }
+
+  .notice-image {
+    max-height: 200px;
   }
 }
 </style>
