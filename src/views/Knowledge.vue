@@ -126,18 +126,6 @@ const getCategoryName = (category: string): string => {
   return cat?.name || category
 }
 
-const fetchCategories = async () => {
-  try {
-    const res = await userApi.getKnowledgeCategories()
-    const cats = res.data || []
-    if (cats.length > 0) {
-      categories.value = cats
-    }
-  } catch (err: any) {
-    console.warn('[Knowledge] 获取分类失败,将从文章中提取:', err?.status || err?.message)
-  }
-}
-
 const fetchKnowledge = async () => {
   loading.value = true
   try {
@@ -157,7 +145,8 @@ const fetchKnowledge = async () => {
 
     allDocs.value = docs
 
-    if (categories.value.length === 0 && docs.length > 0) {
+    // 从文章数据中提取分类
+    if (docs.length > 0) {
       const catMap: Record<string, string> = {}
       for (const doc of docs) {
         if (doc.category && !catMap[doc.category]) {
@@ -191,7 +180,7 @@ watch(keyword, () => {
 })
 
 onMounted(async () => {
-  await Promise.all([fetchCategories(), fetchKnowledge()])
+  await fetchKnowledge()
 })
 </script>
 

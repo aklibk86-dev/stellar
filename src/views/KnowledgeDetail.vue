@@ -165,15 +165,6 @@ const getCategoryName = (category: string): string => {
 const fetchAll = async () => {
   loading.value = true
   try {
-    // 分类独立获取,失败不影响文档加载(与 Knowledge 主页保持一致)
-    userApi.getKnowledgeCategories().then(catRes => {
-      const cats = catRes.data || []
-      if (cats.length > 0) categories.value = cats
-    }).catch((err: any) => {
-      // 部分后端无此接口,静默降级
-      console.warn('[KnowledgeDetail] 获取分类失败,将从文章中提取:', err?.status || err?.message)
-    })
-
     // 获取文档列表(关键) - 传 language=zh-CN 才能返回对应语言文档
     const docRes = await userApi.getKnowledge(undefined, locale.value)
     const rawData = docRes.data
@@ -187,8 +178,8 @@ const fetchAll = async () => {
     }
     allDocs.value = docs
 
-    // 如果分类为空,从文章中提取
-    if (categories.value.length === 0 && docs.length > 0) {
+    // 从文章数据中提取分类
+    if (docs.length > 0) {
       const catMap: Record<string, string> = {}
       for (const d of docs) {
         if (d.category && !catMap[d.category]) catMap[d.category] = d.category
