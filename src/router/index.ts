@@ -2,10 +2,15 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import '@/utils/settings'
 import { useUserStore } from '@/stores/user'
 import { shouldCheckApiAvailability } from '@/utils/apiConfig'
-import { can } from '@/utils/backend'
 import i18n from '@/i18n'
 
 let hasRedirectedToApiValidation = false
+
+// Xboard generates hash-router mail links even when the theme uses history mode.
+if (window.location.hash.startsWith('#/login?')) {
+  const base = (window.routerBase || '/').replace(/\/?$/, '/')
+  window.history.replaceState(null, '', `${base}login?${window.location.hash.slice('#/login?'.length)}`)
+}
 
 const Layout = () => import('@/layouts/MainLayout.vue')
 
@@ -45,10 +50,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/email-login',
     name: 'email-login',
-    component: () => import('@/views/auth/EmailLogin.vue'),
-    meta: { title: 'emailLogin', noAuth: true },
-    // 仅 xboard 后端支持魔法链接登录；v2board 后端直接跳回登录页
-    beforeEnter: () => can('magicLinkLogin') ? true : { name: 'login' },
+    redirect: { name: 'login' },
   },
   {
     path: '/',
@@ -163,7 +165,11 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.meta.noAuth) {
     // landing 页面允许已登录用户访问
-    if (to.name === 'landing') {
+    if (
+      to.name === 'landing'
+      || to.name === 'ApiValidation'
+      || (to.name === 'login' && typeof to.query.verify === 'string')
+    ) {
       next()
       return
     } else if (userStore.isLoggedIn) {

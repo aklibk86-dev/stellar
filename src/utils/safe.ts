@@ -232,9 +232,12 @@ export function renderRichContent(content: string | null | undefined): string {
 
 export function isSafeRedirect(path: string): boolean {
   if (!path) return false
-  const decoded = decodeURIComponent(path).replace(/\\/g, '/')
-  if (decoded.startsWith('/') && !decoded.startsWith('//')) return true
-  return false
+  try {
+    const decoded = decodeURIComponent(path).replace(/\\/g, '/')
+    return decoded.startsWith('/') && !decoded.startsWith('//')
+  } catch {
+    return false
+  }
 }
 
 export function getSafeRedirect(path: string | undefined | null, fallback = '/dashboard'): string {

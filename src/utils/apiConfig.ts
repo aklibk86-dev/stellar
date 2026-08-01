@@ -98,7 +98,17 @@ export const checkSingleApi = async (baseUrl: string, timeout = 6000) => {
       headers: { Accept: 'application/json' },
     })
     const latency = Math.round(performance.now() - startedAt)
-    return { url: normalizeApiBaseUrl(baseUrl), ok: response.ok, status: response.status, latency }
+    const contentType = response.headers.get('content-type') || ''
+    let hasApiPayload = false
+    if (response.ok && contentType.includes('application/json')) {
+      try {
+        const payload = await response.json()
+        hasApiPayload = !!payload && typeof payload === 'object' && !!payload.data && typeof payload.data === 'object'
+      } catch {
+        hasApiPayload = false
+      }
+    }
+    return { url: normalizeApiBaseUrl(baseUrl), ok: response.ok && hasApiPayload, status: response.status, latency }
   } catch (error) {
     const latency = Math.round(performance.now() - startedAt)
     return { url: normalizeApiBaseUrl(baseUrl), ok: false, status: 0, latency, message: error instanceof Error ? error.message : '检测失败' }

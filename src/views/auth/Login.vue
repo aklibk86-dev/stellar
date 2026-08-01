@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
@@ -142,7 +142,7 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    await userStore.login(formData.email, formData.password)
+    await userStore.login(formData.email, formData.password, rememberMe.value)
     message.success(t('common.success'))
     const redirect = getSafeRedirect(route.query.redirect as string, '/dashboard')
     router.push(redirect)
@@ -161,17 +161,39 @@ const handleEmailLinkLogin = async () => {
   }
   emailLinkLoading.value = true
   try {
-    // 先发送验证码
-    await passportApi.sendEmailVerify(formData.email)
-    message.success(t('auth.emailCodeSent'))
-    // 跳转到邮箱验证码登录页面
-    router.push({ path: '/email-login', query: { email: formData.email } })
+    // Xboard sends a one-time login link to this address.
+    const redirect = getSafeRedirect(route.query.redirect as string, '/dashboard')
+    await passportApi.loginWithMailLink(formData.email, redirect)
+    message.success(t('auth.emailLinkSent'))
   } catch (err: any) {
     message.error(err?.message || t('common.failed'))
   } finally {
     emailLinkLoading.value = false
   }
 }
+
+onMounted(async () => {
+  const verify = Array.isArray(route.query.verify) ? route.query.verify[0] : route.query.verify
+  if (typeof verify !== 'string' || !verify) return
+
+  loading.value = true
+  try {
+    const res = await passportApi.token2Login(verify)
+    userStore.setAuthData(res.data.auth_data, res.data.token, true)
+    await userStore.fetchUser(true)
+    message.success(t('common.success'))
+    const redirect = getSafeRedirect(
+      Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect,
+      '/dashboard',
+    )
+    await router.replace(redirect)
+  } catch (err: any) {
+    message.error(err?.message || t('common.failed'))
+    await router.replace('/login')
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <style scoped>

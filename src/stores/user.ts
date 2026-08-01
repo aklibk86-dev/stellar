@@ -11,8 +11,16 @@ import {
 } from '@/utils/backend'
 
 export const useUserStore = defineStore('user', () => {
-  const authToken = ref<string>(localStorage.getItem('stellar_auth_token')?.trim() || '')
-  const subscribeToken = ref<string>(localStorage.getItem('stellar_subscribe_token')?.trim() || '')
+  const authToken = ref<string>(
+    localStorage.getItem('stellar_auth_token')?.trim()
+      || sessionStorage.getItem('stellar_auth_token')?.trim()
+      || '',
+  )
+  const subscribeToken = ref<string>(
+    localStorage.getItem('stellar_subscribe_token')?.trim()
+      || sessionStorage.getItem('stellar_subscribe_token')?.trim()
+      || '',
+  )
   const user = ref<User | null>(null)
   const guestConfig = ref<GuestConfig | null>(null)
 
@@ -25,11 +33,15 @@ export const useUserStore = defineStore('user', () => {
 
   const token = computed(() => authToken.value)
 
-  const setAuthData = (authData: string, subToken: string) => {
+  const setAuthData = (authData: string, subToken: string, remember = true) => {
     authToken.value = authData
     subscribeToken.value = subToken
-    localStorage.setItem('stellar_auth_token', authData)
-    localStorage.setItem('stellar_subscribe_token', subToken)
+    const storage = remember ? localStorage : sessionStorage
+    const otherStorage = remember ? sessionStorage : localStorage
+    storage.setItem('stellar_auth_token', authData)
+    storage.setItem('stellar_subscribe_token', subToken)
+    otherStorage.removeItem('stellar_auth_token')
+    otherStorage.removeItem('stellar_subscribe_token')
   }
 
   const fetchUser = async (force = false): Promise<User | null> => {
@@ -79,9 +91,9 @@ export const useUserStore = defineStore('user', () => {
     return fetchGuestConfigPromise
   }
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, remember = true) => {
     const res = await passportApi.login(email, password)
-    setAuthData(res.data.auth_data, res.data.token)
+    setAuthData(res.data.auth_data, res.data.token, remember)
     await fetchUser(true)
     return res.data
   }
@@ -100,6 +112,8 @@ export const useUserStore = defineStore('user', () => {
     fetchUserPromise = null
     localStorage.removeItem('stellar_auth_token')
     localStorage.removeItem('stellar_subscribe_token')
+    sessionStorage.removeItem('stellar_auth_token')
+    sessionStorage.removeItem('stellar_subscribe_token')
   }
 
   const checkLogin = async () => {

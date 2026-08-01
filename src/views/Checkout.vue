@@ -85,7 +85,7 @@
         <div v-if="existingTradeNo && actualPayAmount > 0" class="section-card">
           <h3 class="section-title">{{ t('order.paymentMethod') }}</h3>
           <div v-if="paymentMethods.length === 0" class="no-payment">
-            <span>{{ t('order.selectPayment') }}</span>
+            <span>{{ excludedStripeCredit ? t('order.cardPaymentUnsupported') : t('order.selectPayment') }}</span>
           </div>
           <div v-else class="payment-grid">
             <div
@@ -104,10 +104,6 @@
                 <span class="payment-name">{{ method.name }}</span>
               </div>
             </div>
-          </div>
-          <div v-if="stripePublicKey" class="stripe-badge">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span>Stripe Secured</span>
           </div>
         </div>
       </div>
@@ -143,6 +139,10 @@
                 <span class="summary-value">-¥{{ formatPrice(orderDetail.balance_amount) }}</span>
               </div>
             </template>
+            <div v-if="paymentHandlingFee > 0" class="summary-row">
+              <span class="summary-label">{{ t('order.handlingFee') }}</span>
+              <span class="summary-value">¥{{ formatPrice(paymentHandlingFee) }}</span>
+            </div>
             <div class="summary-row total">
               <span class="summary-label">{{ t('plan.finalPrice') }}</span>
               <span class="summary-value price-final">¥{{ formatPrice(displayFinalPrice) }}</span>
@@ -200,7 +200,7 @@ const selectedPayment = ref<number | string | null>(null)
 const existingTradeNo = ref<string>('')  // 已创建订单的 trade_no
 const orderDetail = ref<any | null>(null)
 const paymentMethods = ref<PaymentMethod[]>([])
-const stripePublicKey = ref('')
+const excludedStripeCredit = ref(false)
 const paymentError = ref('')
 
 // 优惠码
@@ -211,7 +211,16 @@ const couponData = ref<Coupon | null>(null)
 
 const hasSelectedPayment = computed(() => selectedPayment.value !== null && selectedPayment.value !== '')
 const actualPayAmount = computed(() => orderDetail.value ? Number(orderDetail.value.total_amount || 0) : finalPrice.value)
-const displayFinalPrice = computed(() => existingTradeNo.value ? actualPayAmount.value : finalPrice.value)
+const selectedPaymentMethod = computed(() => paymentMethods.value.find(method => method.id === Number(selectedPayment.value)))
+const paymentHandlingFee = computed(() => {
+  if (!existingTradeNo.value || actualPayAmount.value <= 0 || !selectedPaymentMethod.value) return 0
+  const percent = Number(selectedPaymentMethod.value.handling_fee_percent || 0)
+  const fixed = Number(selectedPaymentMethod.value.handling_fee_fixed || 0)
+  return Math.round(actualPayAmount.value * percent / 100 + fixed)
+})
+const displayFinalPrice = computed(() => existingTradeNo.value
+  ? actualPayAmount.value + paymentHandlingFee.value
+  : finalPrice.value)
 const canSubmitOrder = computed(() => {
   if (!selectedPeriod.value || submitting.value) return false
   if (!existingTradeNo.value) return true
@@ -221,7 +230,7 @@ const canSubmitOrder = computed(() => {
 const submitButtonText = computed(() => {
   if (!existingTradeNo.value) return t('order.placeOrder')
   if (actualPayAmount.value <= 0) return t('order.activateOrder')
-  return `${t('order.confirmPay')} ¥${formatPrice(actualPayAmount.value)}`
+  return `${t('order.confirmPay')} ¥${formatPrice(displayFinalPrice.value)}`
 })
 
 // 价格周期配置
@@ -365,7 +374,10 @@ const loadCreatedOrder = async (tradeNo: string) => {
   }
   if (actualPayAmount.value > 0 && paymentMethods.value.length === 0) {
     const payRes = await userApi.getPaymentMethod()
-    paymentMethods.value = payRes.data || []
+    // StripeCredit requires client-side card tokenization; do not expose a method this theme cannot submit safely.
+    const methods = payRes.data || []
+    excludedStripeCredit.value = methods.some(method => method.payment === 'StripeCredit')
+    paymentMethods.value = methods.filter(method => method.payment !== 'StripeCredit')
   }
   if (actualPayAmount.value > 0 && paymentMethods.value.length > 0 && selectedPayment.value === null) {
     selectedPayment.value = paymentMethods.value[0].id
@@ -454,15 +466,6 @@ const fetchData = async () => {
         return
       }
 
-      // 如果存在 Stripe 支付方式，获取 Stripe 公钥
-      if (paymentMethods.value.some(m => m.payment === 'stripe')) {
-        try {
-          const keyRes = await userApi.getStripePublicKey()
-          stripePublicKey.value = keyRes.data?.public_key || ''
-        } catch {
-          stripePublicKey.value = ''
-        }
-      }
     } catch {
       message.error(t('common.failed'))
     } finally {
@@ -614,8 +617,6 @@ onMounted(fetchData)
 .payment-icon-placeholder { font-size: 16px; font-weight: 700; color: var(--stellar-primary); }
 .payment-name { font-size: 14px; font-weight: 500; color: var(--stellar-text); }
 
-.stripe-badge { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--stellar-text-muted); margin-top: 10px; }
-.stripe-badge svg { flex-shrink: 0; }
 
 /* 订单摘要 */
 .summary-card { /* 占位，由毛玻璃选择器控制背景 */ }

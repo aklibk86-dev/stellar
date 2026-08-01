@@ -44,7 +44,7 @@
             <n-button size="tiny" quaternary :disabled="availableCommission <= 0" @click="openTransfer">
               {{ t('invite.transfer') }}
             </n-button>
-            <n-button size="tiny" type="primary" :disabled="availableCommission <= 0" @click="openCashWithdrawal">
+            <n-button size="tiny" type="primary" :disabled="availableCommission <= 0 || withdrawUnavailable" @click="openCashWithdrawal">
               {{ t('invite.cashWithdraw') }}
             </n-button>
           </div>
@@ -351,15 +351,11 @@
           <span class="withdraw-info-amount">¥{{ formatMoney(availableCommission) }}</span>
         </div>
         <n-form label-placement="top">
-          <n-form-item :label="t('invite.withdrawAmount')">
-            <n-input-number
-              v-model:value="cashWithdrawAmount"
-              :min="0"
-              :max="availableCommission / 100"
-              :precision="2"
-              :step="0.01"
-              placeholder="0.00"
-              style="width: 100%;"
+          <n-form-item :label="t('invite.withdrawMethod')">
+            <n-select
+              v-model:value="withdrawMethod"
+              :options="withdrawMethodOptions"
+              :placeholder="t('invite.withdrawMethodPlaceholder')"
             />
           </n-form-item>
           <n-form-item :label="t('invite.withdrawAccount')">
@@ -376,7 +372,7 @@
           <n-button
             type="primary"
             :loading="cashWithdrawing"
-            :disabled="!cashWithdrawAmount || cashWithdrawAmount <= 0 || !withdrawAccount"
+            :disabled="!withdrawMethod || !withdrawAccount.trim()"
             @click="confirmCashWithdraw"
           >
             {{ t('common.confirm') }}
@@ -413,13 +409,13 @@ const inviteCodes = ref<InviteCode[]>([])
 const loading = ref(false)
 
 // ===== 统计数据 =====
-const stat = ref<number[]>([0, 0, 0, 0, 0])
+const stat = ref<number[]>([])
 
 const inviteCount = computed(() => stat.value[0] || 0)
-const pendingCommission = computed(() => stat.value[1] || 0)
-const totalCommission = computed(() => stat.value[2] || 0)
+const pendingCommission = computed(() => stat.value[2] || 0)
+const totalCommission = computed(() => stat.value[1] || 0)
 const commissionRate = computed(() => stat.value[3] || 0)
-const availableCommission = computed(() => stat.value[4] || userStore.commissionBalance || 0)
+const availableCommission = computed(() => stat.value[4] ?? userStore.commissionBalance ?? 0)
 
 const defaultInviteCode = computed(() => {
   return inviteCodes.value.length > 0 ? inviteCodes.value[0].code : ''
@@ -570,9 +566,13 @@ const transferring = ref(false)
 
 // ===== 提现佣金 =====
 const cashWithdrawVisible = ref(false)
-const cashWithdrawAmount = ref<number | null>(null)
+const withdrawMethods = ref<string[]>([])
+const withdrawMethod = ref<string | null>(null)
+const withdrawClosed = ref(false)
 const withdrawAccount = ref('')
 const cashWithdrawing = ref(false)
+const withdrawMethodOptions = computed(() => withdrawMethods.value.map(value => ({ label: value, value })))
+const withdrawUnavailable = computed(() => withdrawClosed.value || withdrawMethods.value.length === 0)
 
 // ===== 数据获取 =====
 const fetchInviteData = async () => {
@@ -634,6 +634,19 @@ const fetchInviteDetails = async () => {
   }
 }
 
+const fetchUserConfig = async () => {
+  try {
+    const res = await userApi.getConfig()
+    withdrawClosed.value = res.data?.withdraw_close === 1
+    withdrawMethods.value = Array.isArray(res.data?.withdraw_methods) ? res.data.withdraw_methods : []
+    withdrawMethod.value = withdrawMethods.value[0] || null
+  } catch {
+    withdrawClosed.value = true
+    withdrawMethods.value = []
+    withdrawMethod.value = null
+  }
+}
+
 // ===== 复制邀请链接 =====
 const copyInviteLink = async (code: string) => {
   if (!code) return
@@ -680,7 +693,7 @@ const confirmTransfer = async () => {
     message.success(t('common.success'))
     transferVisible.value = false
     transferAmount.value = null
-    await Promise.all([userStore.fetchUser(), fetchInviteData(), fetchInviteDetails()])
+    await Promise.all([userStore.fetchUser(true), fetchInviteData(), fetchInviteDetails()])
   } catch (e: any) {
     message.error(e?.message || t('common.failed'))
   } finally {
@@ -690,33 +703,29 @@ const confirmTransfer = async () => {
 
 // ===== 提现佣金(通过工单) =====
 const openCashWithdrawal = () => {
-  cashWithdrawAmount.value = availableCommission.value > 0 ? Number((availableCommission.value / 100).toFixed(2)) : 0
+  if (withdrawClosed.value || withdrawMethods.value.length === 0) {
+    message.warning(t('invite.withdrawUnavailable'))
+    return
+  }
+  withdrawMethod.value = withdrawMethod.value || withdrawMethods.value[0] || null
   withdrawAccount.value = ''
   cashWithdrawVisible.value = true
 }
 
 const confirmCashWithdraw = async () => {
-  if (!cashWithdrawAmount.value || cashWithdrawAmount.value <= 0) return
+  if (!withdrawMethod.value) {
+    message.error(t('invite.withdrawMethodRequired'))
+    return
+  }
   if (!withdrawAccount.value.trim()) {
     message.error(t('invite.withdrawAccountRequired'))
     return
   }
-  const amountInCents = Math.round(cashWithdrawAmount.value * 100)
-  if (amountInCents > availableCommission.value) {
-    message.error(t('invite.amountExceed'))
-    return
-  }
   cashWithdrawing.value = true
   try {
-    const subject = t('invite.cashWithdrawSubject', { amount: cashWithdrawAmount.value })
-    const messageText = t('invite.cashWithdrawBody', {
-      amount: cashWithdrawAmount.value,
-      account: withdrawAccount.value,
-    })
-    await userApi.createTicket(subject, 1, messageText)
+    await userApi.withdrawTicket(withdrawMethod.value, withdrawAccount.value.trim())
     message.success(t('invite.cashWithdrawSubmitted'))
     cashWithdrawVisible.value = false
-    cashWithdrawAmount.value = null
     withdrawAccount.value = ''
   } catch (e: any) {
     message.error(e?.message || t('common.failed'))
@@ -730,7 +739,7 @@ onMounted(async () => {
   if (!userStore.user) {
     await userStore.fetchUser()
   }
-  await Promise.all([fetchInviteData(), fetchInviteDetails()])
+  await Promise.all([fetchInviteData(), fetchInviteDetails(), fetchUserConfig()])
 })
 </script>
 

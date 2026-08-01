@@ -120,7 +120,7 @@ const fillInviteCodeFromQuery = () => {
   }
 }
 
-const rules: FormRules = {
+const rules = computed<FormRules>(() => ({
   email: [
     { required: true, message: t('auth.email'), trigger: 'blur' },
     { type: 'email', message: t('auth.emailFormatError'), trigger: 'blur' },
@@ -143,7 +143,7 @@ const rules: FormRules = {
   invite_code: [
     { required: guestConfig.value?.is_invite_force === 1, message: t('auth.inviteCode'), trigger: 'blur' },
   ],
-}
+}))
 
 const sendEmailCode = async () => {
   if (!formData.email) {

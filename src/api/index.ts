@@ -2,7 +2,7 @@ import http from './http'
 import type {
   User, Subscribe, Stat, Plan, Order, Server, Ticket,
   Invite, Knowledge, KnowledgeCategory, Notice, Coupon,
-  TrafficLog, PaymentMethod, GuestConfig,
+  TrafficLog, PaymentMethod, GuestConfig, UserConfig,
   OrderCheckoutResult, InviteDetails,
   OrderListResponse, TicketListResponse, InviteListResponse, TrafficLogResponse,
 } from './types'
@@ -86,17 +86,17 @@ export const passportApi = {
     }),
   forget: (email: string, password: string, email_code: string) =>
     http.post<Record<string, never>>(paths().forget, { email, password, email_code }),
-  token2Login: (token: string) =>
-    http.get<{ token: string; auth_data: User }>(paths().token2Login, { params: { token } }),
+  token2Login: (verify: string) =>
+    http.get<{ token: string; auth_data: string; is_admin: boolean }>(paths().token2Login, { params: { verify } }),
   getQuickLoginUrl: () =>
     http.post<{ url: string }>(paths().getQuickLoginUrl),
-  loginWithMailLink: (email: string, email_code: string, redirect?: string) => {
+  loginWithMailLink: (email: string, redirect?: string) => {
     // v2board 不支持魔法链接登录
     if (!can('magicLinkLogin')) {
       return Promise.reject({ status: 0, message: '当前后端不支持邮箱链接登录' })
     }
-    return http.post<{ token: string; auth_data: User }>(paths().loginWithMailLink, {
-      email, email_code, redirect,
+    return http.post<boolean>(paths().loginWithMailLink, {
+      email, redirect,
     })
   },
   sendEmailVerify: (email: string, password?: string) =>
@@ -118,10 +118,11 @@ export const userApi = {
   // 佣金划转：amount 单位为「分」，与 commission_balance 单位一致
   transfer: (amount: number) =>
     http.post<Record<string, never>>(paths().transfer, { transfer_amount: amount }),
-  resetSecurity: () => http.get<{ token: string }>(paths().resetSecurity),
+  resetSecurity: () => http.get<string>(paths().resetSecurity),
   getActiveSession: () => http.get<any[]>(paths().getActiveSession),
   removeActiveSession: (session_id: string) =>
     http.post<Record<string, never>>(paths().removeActiveSession, { session_id }),
+  getConfig: () => http.get<UserConfig>(paths().userConfig),
   // 流量提前重置（仅 v2board 支持）
   newPeriod: () => {
     if (!can('newPeriod')) {
@@ -180,12 +181,12 @@ export const userApi = {
     http.post<Record<string, never>>(paths().ticketReply, { id, message }),
   closeTicket: (id: number) =>
     http.post<Record<string, never>>(paths().ticketClose, { id }),
-  // 工单提现（仅 v2board 支持）
-  withdrawTicket: (id: number, message: string) => {
+  // 通过工单发起佣金提现
+  withdrawTicket: (withdraw_method: string, withdraw_account: string) => {
     if (!can('ticketWithdraw')) {
       return Promise.reject({ status: 0, message: '当前后端不支持工单提现' })
     }
-    return http.post<Record<string, never>>(paths().ticketWithdraw, { id, message })
+    return http.post<Record<string, never>>(paths().ticketWithdraw, { withdraw_method, withdraw_account })
   },
 
   // 服务器
@@ -232,6 +233,6 @@ export const userApi = {
     http.get<any>(paths().telegramBotInfo),
 
   // Stripe
-  getStripePublicKey: () =>
-    http.post<{ public_key: string }>(paths().stripePublicKey),
+  getStripePublicKey: (id: number) =>
+    http.post<string>(paths().stripePublicKey, { id }),
 }

@@ -23,6 +23,7 @@ declare module 'vue' {
     NModal: typeof import('naive-ui')['NModal']
     NoticeBell: typeof import('./components/NoticeBell.vue')['default']
     NPagination: typeof import('naive-ui')['NPagination']
+    NSelect: typeof import('naive-ui')['NSelect']
     PendingOrderBanner: typeof import('./components/PendingOrderBanner.vue')['default']
     PendingTicketBanner: typeof import('./components/PendingTicketBanner.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

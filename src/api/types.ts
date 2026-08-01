@@ -287,6 +287,15 @@ export interface PaymentMethod {
   handling_fee_percent: number
 }
 
+export interface UserConfig {
+  is_telegram?: number
+  telegram_discuss_link?: string | null
+  withdraw_methods?: string[]
+  withdraw_close?: number
+  currency?: string
+  currency_symbol?: string
+}
+
 // 站点配置
 export interface GuestConfig {
   tos_url: string | null

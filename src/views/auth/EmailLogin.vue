@@ -96,7 +96,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import { useAppStore } from '@/stores/app'
-import { useUserStore } from '@/stores/user'
 import { passportApi } from '@/api'
 
 const router = useRouter()
@@ -104,7 +103,6 @@ const route = useRoute()
 const { t } = useI18n()
 const message = useMessage()
 const appStore = useAppStore()
-const userStore = useUserStore()
 
 const title = computed(() => appStore.title)
 const logo = computed(() => appStore.logo)
@@ -194,11 +192,9 @@ const handleLogin = async () => {
   }
   loading.value = true
   try {
-    const res = await passportApi.loginWithMailLink(emailForm.email, codeForm.email_code)
-    // auth_data 是认证令牌(Bearer token), token 是订阅令牌
-    userStore.setAuthData(res.data.auth_data as unknown as string, res.data.token)
-    message.success(t('auth.loginSuccess'))
-    router.push('/dashboard')
+    await passportApi.loginWithMailLink(emailForm.email)
+    message.success(t('auth.emailLinkSent'))
+    router.push('/login')
   } catch (err: any) {
     message.error(err?.message || t('common.failed'))
   } finally {

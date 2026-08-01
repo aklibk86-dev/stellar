@@ -34,26 +34,8 @@
                   <n-avatar round :size="40" :src="basicForm.avatar_url">
                     {{ avatarFallback }}
                   </n-avatar>
-                  <n-input
-                    v-model:value="basicForm.avatar_url"
-                    :placeholder="t('profile.avatar')"
-                    clearable
-                  />
                 </div>
               </n-form-item>
-              <n-form-item :label="t('profile.sign')">
-                <n-input
-                  v-model:value="basicForm.sign"
-                  type="textarea"
-                  :autosize="{ minRows: 2, maxRows: 4 }"
-                  :placeholder="t('profile.sign')"
-                />
-              </n-form-item>
-              <div class="form-footer">
-                <n-button type="primary" :loading="savingBasic" @click="handleSaveBasic">
-                  {{ t('common.save') }}
-                </n-button>
-              </div>
             </n-form>
           </div>
         </div>
@@ -315,10 +297,10 @@ import { useMessage, useDialog, NForm, NFormItem, NInput, NButton, NSwitch, NAva
 import { useUserStore } from '@/stores/user'
 import { userApi } from '@/api'
 import { formatDate } from '@/utils/format'
-import { isValidHttpUrl, truncate } from '@/utils/safe'
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const userStore = useUserStore()
 
 // ===== 响应式布局检测 =====
@@ -333,9 +315,7 @@ const handleMediaChange = (e: MediaQueryListEvent) => {
 const basicForm = reactive({
   email: '',
   avatar_url: '',
-  sign: '',
 })
-const savingBasic = ref(false)
 
 const avatarFallback = computed(() => {
   return basicForm.email ? basicForm.email.charAt(0).toUpperCase() : 'U'
@@ -413,31 +393,8 @@ const initForm = () => {
   if (user) {
     basicForm.email = user.email || ''
     basicForm.avatar_url = user.avatar_url || ''
-    basicForm.sign = user.sign || ''
     notifyForm.remind_expire = user.remind_expire ? 1 : 0
     notifyForm.remind_traffic = user.remind_traffic ? 1 : 0
-  }
-}
-
-// ===== 保存基本信息 =====
-const handleSaveBasic = async () => {
-  if (basicForm.avatar_url && !isValidHttpUrl(basicForm.avatar_url)) {
-    message.warning(t('profile.avatarUrlInvalid'))
-    return
-  }
-  const sign = truncate(basicForm.sign, 200)
-  savingBasic.value = true
-  try {
-    await userApi.update({
-      avatar_url: basicForm.avatar_url,
-      sign,
-    })
-    message.success(t('common.success'))
-    await userStore.fetchUser()
-  } catch (err: any) {
-    message.error(err?.message || t('common.failed'))
-  } finally {
-    savingBasic.value = false
   }
 }
 
@@ -476,7 +433,7 @@ const handleToggleNotify = async (key: 'remind_expire' | 'remind_traffic', value
       remind_traffic: !!notifyForm.remind_traffic,
     } as any)
     message.success(t('common.success'))
-    await userStore.fetchUser()
+    await userStore.fetchUser(true)
   } catch (err: any) {
     notifyForm[key] = oldValue
     message.error(err?.message || t('common.failed'))
@@ -488,8 +445,7 @@ const handleToggleNotify = async (key: 'remind_expire' | 'remind_traffic', value
 // ===== 重置令牌 =====
 const handleResetToken = async () => {
   const confirmed = await new Promise<boolean>((resolve) => {
-    const d = useDialog()
-    d.warning({
+    dialog.warning({
       title: t('profile.resetToken'),
       content: t('profile.resetTokenConfirm'),
       positiveText: t('common.confirm'),
@@ -505,9 +461,9 @@ const handleResetToken = async () => {
   newToken.value = ''
   try {
     const res = await userApi.resetSecurity()
-    newToken.value = res.data.token
+    newToken.value = res.data
     message.success(t('profile.resetTokenSuccess'))
-    await userStore.fetchUser()
+    await userStore.fetchUser(true)
   } catch (err: any) {
     message.error(err?.message || t('common.failed'))
   } finally {
@@ -559,7 +515,7 @@ onMounted(async () => {
   mediaQuery.addEventListener('change', handleMediaChange)
 
   if (!userStore.user) {
-    await userStore.fetchUser()
+    await userStore.fetchUser(true)
   }
   initForm()
   // 拉取在线会话列表

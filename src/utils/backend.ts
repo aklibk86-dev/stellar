@@ -53,7 +53,7 @@ export function isAutoDetectMode(): boolean {
 // ============================================================
 
 export interface BackendCapabilities {
-  /** 魔法链接登录（邮件验证码直接登录） */
+  /** 魔法链接登录（邮件中的一次性链接） */
   magicLinkLogin: boolean
   /** 游客获取套餐列表（无需登录即可看套餐） */
   guestPlanFetch: boolean
@@ -84,7 +84,7 @@ const XBOARD_CAPS: BackendCapabilities = {
   guestPlanFetch: true,
   giftCardFull: true,
   giftCardRedeemOnly: false,
-  ticketWithdraw: false,
+  ticketWithdraw: true,
   newPeriod: false,
   unbindTelegram: false,
   subscribeSpeedLimit: true,
@@ -146,6 +146,7 @@ export interface ApiPaths {
   resetSecurity: string
   getActiveSession: string
   removeActiveSession: string
+  userConfig: string
   // 订单
   orderFetch: string
   orderSave: string
@@ -211,6 +212,7 @@ const XBOARD_PATHS: ApiPaths = {
   resetSecurity: '/api/v1/user/resetSecurity',
   getActiveSession: '/api/v1/user/getActiveSession',
   removeActiveSession: '/api/v1/user/removeActiveSession',
+  userConfig: '/api/v1/user/comm/config',
   orderFetch: '/api/v1/user/order/fetch',
   orderSave: '/api/v1/user/order/save',
   orderCheckout: '/api/v1/user/order/checkout',

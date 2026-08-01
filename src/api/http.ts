@@ -48,7 +48,8 @@ http.interceptors.request.use((config) => {
 
   const userStore = useUserStore()
   if (userStore.authToken) {
-    config.headers['Authorization'] = `Bearer ${userStore.authToken}`
+    const token = String(userStore.authToken).trim()
+    config.headers['Authorization'] = /^Bearer\s/i.test(token) ? token : `Bearer ${token}`
   }
   return config
 })
