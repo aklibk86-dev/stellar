@@ -228,7 +228,7 @@
             <div class="plan-price">
               <span class="price-currency">¥</span>
               <span class="price-amount">{{ plan.displayPrice }}</span>
-              <span class="price-period">/{{ t('landing.month') }}</span>
+              <span class="price-period">{{ plan.displayPeriod }}</span>
             </div>
             <ul class="plan-features">
               <li v-for="(feat, i) in plan.displayFeatures" :key="i">
@@ -352,18 +352,21 @@ const fallbackPlans = [
     id: 0,
     name: '轻量加速',
     displayPrice: '9.9',
+    displayPeriod: '/月',
     displayFeatures: ['适合轻度网页访问', '常用地区节点', '流媒体基础解锁', '全平台订阅导入', '在线客服支持'],
   },
   {
     id: 0,
     name: '标准加速',
     displayPrice: '19.9',
+    displayPeriod: '/月',
     displayFeatures: ['适合日常稳定使用', '高速低延迟节点', 'Netflix / YouTube 优化', '多设备同时使用', '热门线路优先接入'],
   },
   {
     id: 0,
     name: '高级加速',
     displayPrice: '39.9',
+    displayPeriod: '/月',
     displayFeatures: ['适合高频跨境访问', '高级专线节点', '4K/8K 流媒体体验', '游戏与远程办公优化', '更高流量与速率保障'],
   },
 ]
@@ -449,6 +452,16 @@ const displayPlans = computed(() => {
     return pa - pb
   })
   const top3 = sorted.slice(0, 3)
+  // 周期价格优先级（月→季→半年→年→两年→三年→一次性）
+  const priceFields: Array<{ field: keyof Plan, labelKey: string }> = [
+    { field: 'month_price', labelKey: 'plan.perMonth' },
+    { field: 'quarter_price', labelKey: 'plan.perQuarter' },
+    { field: 'half_year_price', labelKey: 'plan.perHalfYear' },
+    { field: 'year_price', labelKey: 'plan.perYear' },
+    { field: 'two_year_price', labelKey: 'plan.perTwoYear' },
+    { field: 'three_year_price', labelKey: 'plan.perThreeYear' },
+    { field: 'onetime_price', labelKey: 'plan.perOnetime' },
+  ]
   return top3.map((plan) => {
     const features: string[] = []
     if (plan.transfer_enable) {
@@ -464,10 +477,22 @@ const displayPlans = computed(() => {
     } else {
       features.push('不限设备')
     }
+    // 按优先级回退取价格与周期标签
+    let price = 0
+    let period = ''
+    for (const f of priceFields) {
+      const v = plan[f.field] as number | null
+      if (v !== null && v !== undefined) {
+        price = v
+        period = t(f.labelKey)
+        break
+      }
+    }
     return {
       id: plan.id,
       name: plan.name,
-      displayPrice: formatPrice(plan.month_price || plan.onetime_price),
+      displayPrice: formatPrice(price),
+      displayPeriod: period,
       displayFeatures: features,
     }
   })

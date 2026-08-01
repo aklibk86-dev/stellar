@@ -82,15 +82,10 @@
         <div class="plan-header">
           <h3 class="plan-name">{{ plan.name }}</h3>
           <div class="plan-price-display">
-            <template v-if="plan.month_price !== null">
+            <template v-if="displayPriceInfo(plan)">
               <span class="price-symbol">¥</span>
-              <span class="price-number">{{ formatPrice(plan.month_price) }}</span>
-              <span class="price-period-label">{{ t('plan.perMonth') }}</span>
-            </template>
-            <template v-else-if="plan.onetime_price !== null">
-              <span class="price-symbol">¥</span>
-              <span class="price-number">{{ formatPrice(plan.onetime_price) }}</span>
-              <span class="price-period-label">{{ t('plan.perOnetime') }}</span>
+              <span class="price-number">{{ formatPrice(displayPriceInfo(plan)!.price) }}</span>
+              <span class="price-period-label">{{ displayPriceInfo(plan)!.label }}</span>
             </template>
             <template v-else>
               <span class="price-unavailable">-</span>
@@ -264,8 +259,30 @@ const shouldAutoPopup = (notice: Notice) => {
   return localStorage.getItem(getPopupStorageKey(notice)) !== todayKey()
 }
 
+// 周期价格优先级（月→季→半年→年→两年→三年→一次性）
+const priceFields: Array<{ field: keyof Plan, labelKey: string }> = [
+  { field: 'month_price', labelKey: 'plan.perMonth' },
+  { field: 'quarter_price', labelKey: 'plan.perQuarter' },
+  { field: 'half_year_price', labelKey: 'plan.perHalfYear' },
+  { field: 'year_price', labelKey: 'plan.perYear' },
+  { field: 'two_year_price', labelKey: 'plan.perTwoYear' },
+  { field: 'three_year_price', labelKey: 'plan.perThreeYear' },
+  { field: 'onetime_price', labelKey: 'plan.perOnetime' },
+]
+
+// 获取套餐展示用价格信息（按优先级回退）
+const displayPriceInfo = (plan: Plan): { price: number, label: string } | null => {
+  for (const f of priceFields) {
+    const v = plan[f.field] as number | null
+    if (v !== null && v !== undefined) {
+      return { price: v, label: t(f.labelKey) }
+    }
+  }
+  return null
+}
+
 const getMonthPrice = (plan: Plan): number | null => {
-  return plan.month_price ?? plan.onetime_price
+  return displayPriceInfo(plan)?.price ?? null
 }
 
 const filteredPlans = computed(() => {
