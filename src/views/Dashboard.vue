@@ -962,8 +962,8 @@ onMounted(() => {
 /* 订单状态颜色 */
 .recent-tag.order-status-0 { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .recent-tag.order-status-1 { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.recent-tag.order-status-2 { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-.recent-tag.order-status-3 { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+.recent-tag.order-status-2 { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+.recent-tag.order-status-3 { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .recent-tag.order-status-4 { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .recent-tag.order-status-5 { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
 
