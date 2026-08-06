@@ -11,6 +11,27 @@
       <!-- 左栏：表单类 -->
       <div class="grid-col">
         <!-- 基本信息 -->
+        <n-modal v-model:show="showEmailModal" preset="card" :title="t('profile.changeEmail')" :show-icon="false" style="width: min(480px, calc(100vw - 32px))">
+          <n-form :model="emailForm" :label-placement="isMobile ? 'top' : 'left'" :label-width="isMobile ? undefined : '100px'">
+            <n-form-item :label="t('profile.newEmail')">
+              <n-input v-model:value="emailForm.email" type="text" :placeholder="t('profile.newEmail')" />
+            </n-form-item>
+            <n-form-item :label="t('profile.verificationCode')">
+              <div class="email-code-field">
+                <n-input v-model:value="emailForm.email_code" :placeholder="t('profile.verificationCode')" />
+                <n-button :disabled="emailCountdown > 0" :loading="sendingEmailCode" @click="sendEmailCode">
+                  {{ emailCountdown > 0 ? `${emailCountdown}s` : t('profile.sendCode') }}
+                </n-button>
+              </div>
+            </n-form-item>
+            <div class="form-footer">
+              <n-button type="primary" :loading="savingEmail" @click="handleChangeEmail">
+                {{ t('profile.changeEmail') }}
+              </n-button>
+            </div>
+          </n-form>
+        </n-modal>
+
         <div class="content-card">
           <div class="card-header">
             <div class="card-title-group">
@@ -27,7 +48,12 @@
               :label-width="isMobile ? undefined : '90px'"
             >
               <n-form-item :label="t('profile.email')">
-                <n-input :value="basicForm.email" readonly />
+                <div class="email-field">
+                  <n-input :value="basicForm.email" readonly />
+                  <n-button secondary @click="openEmailModal">
+                    {{ t('profile.changeEmail') }}
+                  </n-button>
+                </div>
               </n-form-item>
               <n-form-item :label="t('profile.avatar')">
                 <div class="avatar-field">
@@ -295,7 +321,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NForm, NFormItem, NInput, NButton, NSwitch, NAvatar, NAlert, NModal } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
-import { userApi } from '@/api'
+import { userApi, passportApi } from '@/api'
 import { formatDate } from '@/utils/format'
 
 const { t } = useI18n()
@@ -316,6 +342,79 @@ const basicForm = reactive({
   email: '',
   avatar_url: '',
 })
+
+const showEmailModal = ref(false)
+const emailForm = reactive({ email: '', email_code: '' })
+const sendingEmailCode = ref(false)
+const savingEmail = ref(false)
+const emailCountdown = ref(0)
+let emailCountdownTimer: number | null = null
+
+const openEmailModal = () => {
+  emailForm.email = basicForm.email
+  emailForm.email_code = ''
+  showEmailModal.value = true
+}
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+const sendEmailCode = async () => {
+  const email = emailForm.email.trim()
+  if (!isValidEmail(email)) {
+    message.error(t('auth.emailFormatError'))
+    return
+  }
+  if (email.toLowerCase() === basicForm.email.trim().toLowerCase()) {
+    message.warning(t('profile.emailSame'))
+    return
+  }
+  sendingEmailCode.value = true
+  try {
+    await passportApi.sendEmailVerify(email)
+    message.success(t('profile.emailCodeSent'))
+    emailCountdown.value = 60
+    emailCountdownTimer = window.setInterval(() => {
+      emailCountdown.value -= 1
+      if (emailCountdown.value <= 0 && emailCountdownTimer !== null) {
+        window.clearInterval(emailCountdownTimer)
+        emailCountdownTimer = null
+      }
+    }, 1000)
+  } catch (err: any) {
+    message.error(err?.message || t('common.failed'))
+  } finally {
+    sendingEmailCode.value = false
+  }
+}
+
+const handleChangeEmail = async () => {
+  const email = emailForm.email.trim()
+  const code = emailForm.email_code.trim()
+  if (!isValidEmail(email)) {
+    message.error(t('auth.emailFormatError'))
+    return
+  }
+  if (!code) {
+    message.warning(t('profile.emailCodeRequired'))
+    return
+  }
+  savingEmail.value = true
+  try {
+    await userApi.changeEmail(email, code)
+    await userStore.fetchUser(true)
+    const updatedEmail = userStore.user?.email?.trim().toLowerCase()
+    if (updatedEmail !== email.toLowerCase()) {
+      throw new Error(t('profile.emailChangeUnsupported'))
+    }
+    basicForm.email = userStore.user?.email || email
+    showEmailModal.value = false
+    message.success(t('profile.emailChangeSuccess'))
+  } catch (err: any) {
+    message.error(err?.message || t('common.failed'))
+  } finally {
+    savingEmail.value = false
+  }
+}
 
 const avatarFallback = computed(() => {
   return basicForm.email ? basicForm.email.charAt(0).toUpperCase() : 'U'
@@ -526,6 +625,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   mediaQuery.removeEventListener('change', handleMediaChange)
+  if (emailCountdownTimer !== null) {
+    window.clearInterval(emailCountdownTimer)
+    emailCountdownTimer = null
+  }
 })
 </script>
 
@@ -569,6 +672,8 @@ onBeforeUnmount(() => {
 /* 头像输入字段 */
 .avatar-field { display: flex; align-items: center; gap: 12px; width: 100%; }
 .avatar-field :deep(.n-input) { flex: 1; }
+.email-field, .email-code-field { display: flex; align-items: center; gap: 8px; width: 100%; }
+.email-field :deep(.n-input), .email-code-field :deep(.n-input) { flex: 1; min-width: 0; }
 
 /* 通知设置列表 */
 .notify-list { display: flex; flex-direction: column; }

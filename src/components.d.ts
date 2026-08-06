@@ -31,5 +31,6 @@ declare module 'vue' {
     StellarDropdown: typeof import('./components/StellarDropdown.vue')['default']
     StellarIcon: typeof import('./components/StellarIcon.vue')['default']
     SubscribeImportModal: typeof import('./components/SubscribeImportModal.vue')['default']
+    ThirdPartyChat: typeof import('./components/ThirdPartyChat.vue')['default']
   }
 }

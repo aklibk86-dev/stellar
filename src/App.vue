@@ -11,6 +11,7 @@
             <AppContent />
             <!-- 页头页脚自定义代码注入 -->
             <CodeInjector />
+            <ThirdPartyChat />
           </n-notification-provider>
         </n-dialog-provider>
       </n-message-provider>
@@ -31,6 +32,7 @@ import { useAppStore } from '@/stores/app'
 import i18n from '@/i18n'
 import AppContent from './AppContent.vue'
 import CodeInjector from './components/CodeInjector.vue'
+import ThirdPartyChat from './components/ThirdPartyChat.vue'
 import GlobalBackground from './components/GlobalBackground.vue'
 
 const appStore = useAppStore()

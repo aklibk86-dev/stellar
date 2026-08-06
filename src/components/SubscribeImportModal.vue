@@ -21,7 +21,7 @@
 
     <div class="subscribe-import">
       <div class="content-grid">
-        <section class="client-panel">
+        <section v-if="clientImportEnabled" class="client-panel">
           <div class="panel-header">
             <div>
               <h3>{{ t('dashboard.importTo') }}</h3>
@@ -65,6 +65,9 @@
                 <StellarIcon name="chevron-forward" :size="17" />
               </span>
             </button>
+            <p v-if="filteredClients.length === 0" class="client-empty">
+              {{ t('dashboard.noClientsConfigured') }}
+            </p>
           </div>
         </section>
 
@@ -238,12 +241,26 @@ const allClients = computed<Client[]>(() => [
   { id: 'mac-hiddify', name: 'Hiddify', platform: 'mac', logo: logoPath('macos', 'hiddify.png'), buildUrl: hiddifyUrl },
 ])
 
+const clientImportConfig = computed(() => window.settings?.client_imports || {})
+const clientImportEnabled = computed(() => clientImportConfig.value.enabled !== false)
+const configuredClientIds = computed(() => new Set(
+  (clientImportConfig.value.clients || []).map((id) => String(id).trim().toLowerCase()).filter(Boolean),
+))
+const enabledClients = computed(() => {
+  if (!clientImportEnabled.value) return []
+  if (!configuredClientIds.value.size) return allClients.value
+  return allClients.value.filter((client) => (
+    configuredClientIds.value.has(client.id.toLowerCase())
+    || configuredClientIds.value.has(client.name.toLowerCase())
+  ))
+})
+
 const filteredClients = computed(() =>
-  allClients.value.filter((client) => client.platform === activePlatform.value),
+  enabledClients.value.filter((client) => client.platform === activePlatform.value),
 )
 
 const countClients = (platform: Platform) =>
-  allClients.value.filter((client) => client.platform === platform).length
+  enabledClients.value.filter((client) => client.platform === platform).length
 
 const getPlatformLabel = (platform: Platform) =>
   platformTabs.find((item) => item.key === platform)?.label || platform
@@ -297,6 +314,7 @@ const importToClient = (client: Client) => {
 .platform-tab.active span { color: #fff; background: var(--stellar-primary); }
 
 .client-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; max-height: 330px; padding: 1px 4px 1px 1px; overflow-y: auto; }
+.client-empty { grid-column: 1 / -1; margin: 12px 0; color: var(--stellar-text-muted); font-size: 13px; text-align: center; }
 .client-item { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--stellar-border-light); border-radius: 13px; color: inherit; background: var(--stellar-bg-card); text-align: left; cursor: pointer; transition: border-color .2s, background .2s, transform .2s, box-shadow .2s; }
 .client-item:hover { border-color: color-mix(in srgb, var(--stellar-primary) 45%, var(--stellar-border)); background: var(--stellar-primary-light); transform: translateY(-1px); box-shadow: 0 7px 18px rgba(15, 23, 42, .07); }
 .client-icon { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--stellar-border-light); border-radius: 11px; background: #fff; }

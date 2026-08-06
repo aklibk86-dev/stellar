@@ -87,6 +87,29 @@ window.settings = {
     router: '',
   },
 
+  // One-click import allowlist. Empty clients means all built-in clients.
+  client_imports: {
+    enabled: true,
+    clients: [],
+  },
+
+  // Invite sharing card and visible social platforms.
+  social_sharing: {
+    enabled: true,
+    platforms: ['wechat', 'qq', 'weibo', 'twitter', 'telegram', 'facebook', 'copy'],
+    title: '',
+    description: '',
+  },
+
+  // Third-party customer service. Supports Tawk or a trusted custom script URL.
+  customer_service: {
+    enabled: false,
+    provider: 'tawk', // 'tawk' | 'custom'
+    tawk_property_id: '',
+    tawk_widget_id: 'default',
+    script_url: '',
+  },
+
   // ==========================================================
   // 全站背景（支持静态图片 / 视频两种媒体类型）
   // ==========================================================
@@ -179,7 +202,7 @@ window.settings = {
 
     // 【static 模式】后端 API 地址列表（支持多个，会自动检测可用的）
     static_base_urls: [
-      '',
+      'https://xboard.wf1.one',
     ],
 
     // 【auto 模式】同源拼接规则（url_mode='auto' 时生效）
@@ -203,6 +226,6 @@ window.settings = {
     // 'xboard'  - cedar2025/Xboard（默认猜测，支持魔法链接登录、礼品卡完整模块、Turnstile 验证码等）
     // 'v2board' - wyx2685/v2board 及兼容的原版 v2board（支持工单提现、流量提前重置、解绑 Telegram 等）
     // 'auto'    - 自动探测（首次请求 guest/comm/config 后根据字段判断，无法判断时按 xboard 处理）
-    backend_type: 'auto',
+    backend_type: 'xboard',
   },
 }

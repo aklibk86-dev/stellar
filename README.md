@@ -95,10 +95,11 @@ copy .env.example .env.development
 修改 `.env.development` 中的后端地址：
 
 ```env
-VITE_DEV_API_TARGET=https://api.example.com
+VITE_API_BASE_URL=https://api.example.com
+VITE_BACKEND_TYPE=xboard
 ```
 
-> 仅开发环境使用，生产环境在 `public/env.js` 中配置。
+> 开发环境可使用 `.env.development`；生产环境可使用 `.env.production` 构建，或在部署后修改 `public/env.js`。
 
 ### 4. 启动开发服务器
 
@@ -148,7 +149,19 @@ cp .env.example .env.production
 | --- | --- |
 | `VITE_BASE` | 构建资源基础路径 |
 | `VITE_CDN_URL` | 静态资源 CDN 前缀 |
-| `VITE_DEV_API_TARGET` | 本地开发代理目标 |
+| `VITE_API_BASE_URL` | 后端 API 根地址 |
+| `VITE_BACKEND_TYPE` | 后端类型：`xboard` / `v2board` / `auto` |
+| `VITE_CLIENT_IMPORTS_ENABLED` | 是否显示一键导入客户端列表 |
+| `VITE_CLIENT_IMPORTS` | 允许显示的客户端 ID，使用逗号分隔，留空显示全部 |
+| `VITE_SOCIAL_SHARE_ENABLED` | 是否显示邀请分享区域 |
+| `VITE_SOCIAL_SHARE_PLATFORMS` | 分享平台列表，使用逗号分隔 |
+| `VITE_CUSTOMER_SERVICE_ENABLED` | 是否加载第三方客服 |
+| `VITE_CUSTOMER_SERVICE_PROVIDER` | 客服类型：`tawk` / `custom` |
+| `VITE_TAWK_PROPERTY_ID` | Tawk Property ID |
+| `VITE_TAWK_WIDGET_ID` | Tawk Widget ID |
+| `VITE_CUSTOMER_SERVICE_SCRIPT_URL` | `custom` 客服的 HTTPS 脚本地址 |
+
+仅显式设置的 `VITE_*` 字段会覆盖 `public/env.js` 中对应配置；修改 `.env` 后必须重新构建。未设置的字段仍可通过 `public/env.js` 在部署后动态调整。
 
 ### 运行时配置
 
@@ -172,6 +185,23 @@ window.settings = {
   client_downloads: {
     windows: '', macos: '', android: '', ios: '', linux: '', router: '',
   },
+  client_imports: {
+    enabled: true,
+    clients: [],
+  },
+  social_sharing: {
+    enabled: true,
+    platforms: ['wechat', 'qq', 'weibo', 'twitter', 'telegram', 'facebook', 'copy'],
+    title: '',
+    description: '',
+  },
+  customer_service: {
+    enabled: false,
+    provider: 'tawk',
+    tawk_property_id: '',
+    tawk_widget_id: 'default',
+    script_url: '',
+  },
   api: {
     url_mode: 'auto',
     static_base_urls: [],
@@ -192,6 +222,22 @@ window.settings = {
 | `landing_theme_mode` | 落地页默认模式：`dark` / `light` |
 | `telegram_group` | Telegram 群组链接 |
 | `glassmorphism` | 毛玻璃卡片特效配置 |
+| `client_imports` | 一键导入开关及客户端 ID 白名单；`clients: []` 表示全部 |
+| `social_sharing` | 邀请分享开关、平台列表及自定义分享标题/描述 |
+| `customer_service` | Tawk 或可信自定义客服脚本配置 |
+
+内置客户端 ID 可直接查看 `src/components/SubscribeImportModal.vue`。常用示例：`ios-shadowrocket`、`ios-stash`、`android-flclash`、`android-v2rayng`、`windows-clashverge`、`mac-clashverge`。
+
+Tawk 配置示例：
+
+```js
+customer_service: {
+  enabled: true,
+  provider: 'tawk',
+  tawk_property_id: 'YOUR_PROPERTY_ID',
+  tawk_widget_id: 'default',
+}
+```
 
 ## API 接入方式
 
@@ -259,6 +305,8 @@ api: {
 | 流量提前重置 | ❌ | ✅ |
 | 解绑 Telegram | ❌ | ✅ |
 | 高级验证码 | ✅ | ❌ |
+
+> 修改邮箱说明：前端已实现新邮箱验证码、提交、重新拉取用户信息和结果校验。cedar2025/Xboard 与 wyx2685/v2board 官方版本当前都未提供修改邮箱接口，`/api/v1/user/update` 仅接受提醒类设置，因此官方后端会显示“不支持修改邮箱”，不会误报成功。要真正启用该功能，需要后端扩展该接口并接受 `email`、`email_code` 字段。
 
 自动探测规则：首次请求 `guest/comm/config` 后，根据返回字段（`is_captcha`、`captcha_type` 等）判断后端类型。
 

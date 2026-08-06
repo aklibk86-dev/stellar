@@ -108,10 +108,15 @@ export const userApi = {
   getInfo: () => http.get<User>(paths().userInfo),
   getSubscribe: () => http.get<Subscribe>(paths().userSubscribe),
   getStat: () => http.get<Stat>(paths().userStat),
-  changePassword: (oldpwd: string, newpwd: string) =>
-    http.post<Record<string, never>>(paths().changePassword, { oldpwd, newpwd }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    http.post<Record<string, never>>(paths().changePassword, {
+      old_password: oldPassword,
+      new_password: newPassword,
+    }),
   update: (data: Partial<User>) =>
     http.post<Record<string, never>>(paths().userUpdate, data),
+  changeEmail: (email: string, emailCode: string) =>
+    http.post<Record<string, never>>(paths().userUpdate, { email, email_code: emailCode }),
   getQuickLoginUrl: () =>
     http.post<{ url: string }>(paths().userQuickLoginUrl),
   checkLogin: () => http.get<Record<string, never>>(paths().checkLogin),

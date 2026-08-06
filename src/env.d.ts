@@ -35,6 +35,23 @@ interface Window {
       linux?: string
       router?: string
     }
+    client_imports?: {
+      enabled?: boolean
+      clients?: string[]
+    }
+    social_sharing?: {
+      enabled?: boolean
+      platforms?: string[]
+      title?: string
+      description?: string
+    }
+    customer_service?: {
+      enabled?: boolean
+      provider?: 'tawk' | 'custom'
+      tawk_property_id?: string
+      tawk_widget_id?: string
+      script_url?: string
+    }
     /** 全站背景配置（支持图片/视频） */
     background?: {
       /** 是否启用全站背景 */

@@ -451,7 +451,6 @@ const displayPlans = computed(() => {
     const pb = b.sort || b.month_price || b.onetime_price || 0
     return pa - pb
   })
-  const top3 = sorted.slice(0, 3)
   // 周期价格优先级（月→季→半年→年→两年→三年→一次性）
   const priceFields: Array<{ field: keyof Plan, labelKey: string }> = [
     { field: 'month_price', labelKey: 'plan.perMonth' },
@@ -462,7 +461,7 @@ const displayPlans = computed(() => {
     { field: 'three_year_price', labelKey: 'plan.perThreeYear' },
     { field: 'onetime_price', labelKey: 'plan.perOnetime' },
   ]
-  return top3.map((plan) => {
+  return sorted.map((plan) => {
     const features: string[] = []
     if (plan.transfer_enable) {
       features.push(`每月流量 ${formatTraffic(plan.transfer_enable)}`)
