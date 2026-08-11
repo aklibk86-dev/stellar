@@ -535,28 +535,21 @@ const toggleFaq = (idx: number) => {
 // 获取数据
 const fetchData = async () => {
   try {
-    const [planRes, configRes] = await Promise.allSettled([
-      guestApi.getPlans(),
-      guestApi.getConfig(),
-    ])
-    if (planRes.status === 'fulfilled') {
-      plans.value = planRes.value.data || []
-    }
+    const planRes = await guestApi.getPlans()
+    plans.value = planRes.data || []
     // 优先使用配置文件中的 telegram_group，避免依赖后端字段
     const configTelegram = window.settings?.telegram_group || ''
     if (configTelegram) {
       telegramGroupUrl.value = configTelegram
       return
     }
-    if (configRes.status === 'fulfilled') {
-      const apiTelegram =
-        configRes.value.data?.telegram_group ||
-        configRes.value.data?.telegram ||
-        configRes.value.data?.tg_group ||
-        configRes.value.data?.group_link ||
-        ''
-      telegramGroupUrl.value = apiTelegram
-    }
+    const config = userStore.guestConfig
+    telegramGroupUrl.value =
+      config?.telegram_group ||
+      config?.telegram ||
+      config?.tg_group ||
+      config?.group_link ||
+      ''
   } catch (err) {
     console.warn('[Landing] 获取 TG 群组链接失败:', err)
   }

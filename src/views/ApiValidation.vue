@@ -72,7 +72,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { checkSingleApi, getStaticApiBaseUrls, setAvailableApiUrl } from '@/utils/apiConfig'
-import { sanitizeHtml, getSafeRedirect } from '@/utils/safe'
+import { sanitizeHtml } from '@/utils/sanitize'
+import { getSafeRedirect } from '@/utils/navigation'
 
 const { t } = useI18n()
 const router = useRouter()

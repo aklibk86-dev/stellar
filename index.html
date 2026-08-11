@@ -3,10 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none';" />
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
   <title>Loading...</title>
+  <style>
+    .stellar-page-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0d1119;
+    }
+    .stellar-page-loader__spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(148, 163, 184, 0.22);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: stellar-loader-spin 0.75s linear infinite;
+    }
+    .stellar-page-loader-fade-enter-active,
+    .stellar-page-loader-fade-leave-active {
+      transition: opacity 0.18s ease;
+    }
+    .stellar-page-loader-fade-enter-from,
+    .stellar-page-loader-fade-leave-to {
+      opacity: 0;
+    }
+    @keyframes stellar-loader-spin {
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .stellar-page-loader__spinner { animation-duration: 1.5s; }
+    }
+  </style>
   <script>
     // 提前初始化默认配置，防止 env.js 加载失败导致白屏
     window.routerBase = window.routerBase || '/'
@@ -38,6 +71,8 @@
         enabled: false,
         type: 'image',
         url: '',
+        desktop_url: '',
+        mobile_url: '',
         poster: '',
         overlay_opacity: 0.35,
         overlay_color: '#000000',
@@ -61,7 +96,11 @@
   <script src="./env.js"></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="stellar-page-loader" role="status" aria-label="加载中">
+      <span class="stellar-page-loader__spinner" aria-hidden="true"></span>
+    </div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

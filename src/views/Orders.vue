@@ -239,7 +239,7 @@ import {
 import { userApi, normalizeListData } from '@/api'
 import type { Order, Plan, PaymentMethod } from '@/api/types'
 import { formatDate, formatPrice, formatPeriod } from '@/utils/format'
-import { sanitizeHtml } from '@/utils/safe'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const router = useRouter()

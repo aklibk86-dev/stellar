@@ -10,8 +10,8 @@
           <n-notification-provider>
             <AppContent />
             <!-- 页头页脚自定义代码注入 -->
-            <CodeInjector />
-            <ThirdPartyChat />
+            <CodeInjector v-if="hasCustomCode" />
+            <ThirdPartyChat v-if="hasThirdPartyChat" />
           </n-notification-provider>
         </n-dialog-provider>
       </n-message-provider>
@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   NConfigProvider, NLoadingBarProvider, NMessageProvider,
@@ -31,12 +31,15 @@ import {
 import { useAppStore } from '@/stores/app'
 import i18n from '@/i18n'
 import AppContent from './AppContent.vue'
-import CodeInjector from './components/CodeInjector.vue'
-import ThirdPartyChat from './components/ThirdPartyChat.vue'
 import GlobalBackground from './components/GlobalBackground.vue'
+
+const CodeInjector = defineAsyncComponent(() => import('./components/CodeInjector.vue'))
+const ThirdPartyChat = defineAsyncComponent(() => import('./components/ThirdPartyChat.vue'))
 
 const appStore = useAppStore()
 const route = useRoute()
+const hasCustomCode = Boolean(window.settings?.header_code || window.settings?.footer_code)
+const hasThirdPartyChat = Boolean(window.settings?.customer_service?.enabled)
 
 // 落地页：跳过全局背景组件渲染，并在 <html> 上加 stellar-route-landing 类
 // 供 main.css 中的覆盖样式使用，让落地页彻底脱离全局背景图与毛玻璃设置

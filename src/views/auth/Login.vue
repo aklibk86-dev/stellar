@@ -32,6 +32,16 @@
           <h2 class="auth-title">{{ t('auth.loginTitle') }}</h2>
           <p class="auth-subtitle">{{ t('auth.loginSubtitle') }}</p>
 
+          <n-alert
+            v-if="loginRequired"
+            class="login-required-alert"
+            type="warning"
+            :title="t('auth.loginRequiredTitle')"
+            :show-icon="false"
+          >
+            {{ t('auth.loginRequiredDesc') }}
+          </n-alert>
+
           <n-form ref="formRef" :model="formData" :rules="rules" size="large" @submit.prevent="handleLogin">
             <n-form-item path="email" :label="t('auth.email')">
               <n-input v-model:value="formData.email" :placeholder="t('auth.email')" clearable>
@@ -88,12 +98,12 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useMessage, type FormInst, type FormRules } from 'naive-ui'
+import { useMessage, NAlert, type FormInst, type FormRules } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 import { passportApi } from '@/api'
 import { NButton } from 'naive-ui'
-import { getSafeRedirect } from '@/utils/safe'
+import { getSafeRedirect } from '@/utils/navigation'
 import { can } from '@/utils/backend'
 
 const router = useRouter()
@@ -109,6 +119,7 @@ const rememberMe = ref(true)
 const emailLinkLoading = ref(false)
 // 邮件链接登录仅 xboard 后端支持
 const showEmailLinkLogin = computed(() => can('magicLinkLogin'))
+const loginRequired = computed(() => route.query.reason === 'login_required')
 
 const title = computed(() => appStore.title)
 const logo = computed(() => appStore.logo)
@@ -341,6 +352,10 @@ onMounted(async () => {
   font-size: 14px;
   color: var(--stellar-text-muted);
   margin-bottom: 32px;
+}
+
+.login-required-alert {
+  margin-bottom: 20px;
 }
 
 .auth-actions {

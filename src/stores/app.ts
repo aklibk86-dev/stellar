@@ -8,6 +8,8 @@ interface BackgroundConfig {
   enabled: boolean
   type: 'image' | 'video'
   url: string
+  desktop_url: string
+  mobile_url: string
   poster?: string
   overlay_opacity: number
   overlay_color: string
@@ -44,6 +46,8 @@ export const useAppStore = defineStore('app', () => {
     enabled: false,
     type: 'image',
     url: '',
+    desktop_url: '',
+    mobile_url: '',
     poster: '',
     overlay_opacity: 0.35,
     overlay_color: '#000000',
@@ -63,10 +67,20 @@ export const useAppStore = defineStore('app', () => {
     radius: 12,
   })
 
-  // 背景是否启用（兼容旧版 background_url：若新配置未启用但旧字段有值，则 auth 页面仍可用）
-  const backgroundEnabled = computed(() => {
+  // 桌面端和手机端优先使用各自地址，再回退到通用地址和另一端地址。
+  const desktopBackgroundUrl = computed(() => {
     const bg = background.value
-    return bg.enabled && !!bg.url
+    return bg.desktop_url || bg.url || bg.mobile_url
+  })
+
+  const mobileBackgroundUrl = computed(() => {
+    const bg = background.value
+    return bg.mobile_url || bg.url || bg.desktop_url
+  })
+
+  const backgroundEnabled = computed(() => {
+    // 旧版 background_url 仍由认证页面单独兼容；这里只控制新的全站背景。
+    return background.value.enabled && !!(desktopBackgroundUrl.value || mobileBackgroundUrl.value)
   })
 
   const init = () => {
@@ -190,6 +204,8 @@ export const useAppStore = defineStore('app', () => {
     description,
     background,
     glassmorphism,
+    desktopBackgroundUrl,
+    mobileBackgroundUrl,
     backgroundEnabled,
     init,
     toggleDark,

@@ -156,9 +156,18 @@ cp .env.example .env.production
 | `VITE_SOCIAL_SHARE_ENABLED` | 是否显示邀请分享区域 |
 | `VITE_SOCIAL_SHARE_PLATFORMS` | 分享平台列表，使用逗号分隔 |
 | `VITE_CUSTOMER_SERVICE_ENABLED` | 是否加载第三方客服 |
-| `VITE_CUSTOMER_SERVICE_PROVIDER` | 客服类型：`tawk` / `custom` |
+| `VITE_CUSTOMER_SERVICE_PROVIDER` | 客服类型：`tawk` / `crisp` / `chatwoot` / `intercom` / `custom` |
+| `VITE_CUSTOMER_SERVICE_LOAD_DELAY` | 客服脚本延迟加载毫秒数 |
+| `VITE_CUSTOMER_SERVICE_LOAD_ON_IDLE` | 是否在浏览器空闲时加载 |
+| `VITE_CUSTOMER_SERVICE_IDENTIFY_USER` | 是否向客服平台同步登录用户身份 |
+| `VITE_CUSTOMER_SERVICE_SHOW_ROUTES` | 允许显示的路由，逗号分隔，支持结尾 `*` |
+| `VITE_CUSTOMER_SERVICE_HIDE_ROUTES` | 禁止显示的路由，逗号分隔，优先级高于允许列表 |
 | `VITE_TAWK_PROPERTY_ID` | Tawk Property ID |
 | `VITE_TAWK_WIDGET_ID` | Tawk Widget ID |
+| `VITE_CRISP_WEBSITE_ID` | Crisp Website ID |
+| `VITE_CHATWOOT_BASE_URL` | Chatwoot 部署地址 |
+| `VITE_CHATWOOT_WEBSITE_TOKEN` | Chatwoot Website Token |
+| `VITE_INTERCOM_APP_ID` | Intercom App ID |
 | `VITE_CUSTOMER_SERVICE_SCRIPT_URL` | `custom` 客服的 HTTPS 脚本地址 |
 
 仅显式设置的 `VITE_*` 字段会覆盖 `public/env.js` 中对应配置；修改 `.env` 后必须重新构建。未设置的字段仍可通过 `public/env.js` 在部署后动态调整。
@@ -181,6 +190,13 @@ window.settings = {
   landing_theme_mode: 'dark',
   telegram_group: '',
   api_error_contact: '',
+  background: {
+    enabled: true,
+    type: 'image',
+    url: '',
+    desktop_url: 'https://example.com/wallpaper-desktop.webp',
+    mobile_url: 'https://example.com/wallpaper-mobile.webp',
+  },
   glassmorphism: {},
   client_downloads: {
     windows: '', macos: '', android: '', ios: '', linux: '', router: '',
@@ -198,8 +214,21 @@ window.settings = {
   customer_service: {
     enabled: false,
     provider: 'tawk',
+    load_delay: 800,
+    load_on_idle: true,
+    identify_user: true,
+    track_page_views: true,
+    show_on_routes: [],
+    hide_on_routes: ['/login', '/register', '/forget'],
+    hide_on_mobile: false,
+    tags: ['stellar'],
+    attributes: {},
     tawk_property_id: '',
     tawk_widget_id: 'default',
+    crisp_website_id: '',
+    chatwoot_base_url: '',
+    chatwoot_website_token: '',
+    intercom_app_id: '',
     script_url: '',
   },
   api: {
@@ -217,14 +246,17 @@ window.settings = {
 | `title` / `description` | 网站名称和描述 |
 | `assets_path` | 静态资源目录 |
 | `theme.color` | 主题色标识 |
-| `background_url` | 自定义背景图片地址 |
+| `background_url` | 旧版登录页背景地址，仅用于向后兼容 |
+| `background` | 全站图片/视频背景；支持 `desktop_url` 与 `mobile_url` 分别设置电脑和手机壁纸 |
 | `logo` | 自定义 Logo 地址 |
 | `landing_theme_mode` | 落地页默认模式：`dark` / `light` |
 | `telegram_group` | Telegram 群组链接 |
 | `glassmorphism` | 毛玻璃卡片特效配置 |
 | `client_imports` | 一键导入开关及客户端 ID 白名单；`clients: []` 表示全部 |
 | `social_sharing` | 邀请分享开关、平台列表及自定义分享标题/描述 |
-| `customer_service` | Tawk 或可信自定义客服脚本配置 |
+| `customer_service` | Tawk、Crisp、Chatwoot、Intercom 或可信自定义客服脚本配置 |
+
+背景地址按视口宽度自动选择：宽度不超过 `767px` 时优先使用 `mobile_url`，其余视口优先使用 `desktop_url`。对应地址为空时会回退到通用 `url`，再回退到另一端地址，因此原有只配置 `url` 的部署无需修改。
 
 内置客户端 ID 可直接查看 `src/components/SubscribeImportModal.vue`。常用示例：`ios-shadowrocket`、`ios-stash`、`android-flclash`、`android-v2rayng`、`windows-clashverge`、`mac-clashverge`。
 
@@ -236,8 +268,74 @@ customer_service: {
   provider: 'tawk',
   tawk_property_id: 'YOUR_PROPERTY_ID',
   tawk_widget_id: 'default',
+  load_on_idle: true,
+  load_delay: 800,
+  identify_user: true,
+  hide_on_routes: ['/login', '/register', '/forget', '/checkout/*'],
+  tags: ['stellar-panel'],
+  attributes: { source: 'web' },
 }
 ```
+
+Tawk 会自动同步当前登录用户的 UUID、邮箱、头像和套餐 ID，并转发 `onStatusChange`、`onChatStarted`、`onChatEnded`、`onOfflineSubmit` 等官方回调。页面可监听统一事件：
+
+```js
+window.addEventListener('stellar:customer-service', (event) => {
+  console.log(event.detail.provider, event.detail.event, event.detail.payload)
+})
+
+await window.stellarCustomerService?.open()
+window.stellarCustomerService?.track('order_created', { plan_id: 1 })
+```
+
+Tawk 安全模式必须在服务端使用 Property API Key 为每个用户生成 HMAC SHA256。可在应用启动前注入当前用户身份，禁止把通用 hash 或 API Key 写入静态文件：
+
+```js
+window.customerServiceIdentity = {
+  user_id: 'CURRENT_USER_ID',
+  hash: 'SERVER_GENERATED_TAWK_HASH',
+  name: 'Current User',
+  email: 'user@example.com',
+}
+```
+
+其他客服平台示例：
+
+```js
+// Crisp
+customer_service: {
+  enabled: true,
+  provider: 'crisp',
+  crisp_website_id: 'YOUR_CRISP_WEBSITE_ID',
+}
+
+// Chatwoot（支持官方云服务和自托管）
+customer_service: {
+  enabled: true,
+  provider: 'chatwoot',
+  chatwoot_base_url: 'https://chat.example.com',
+  chatwoot_website_token: 'YOUR_WEBSITE_TOKEN',
+  chatwoot_locale: 'zh_CN',
+  chatwoot_position: 'right',
+}
+
+// Intercom
+customer_service: {
+  enabled: true,
+  provider: 'intercom',
+  intercom_app_id: 'YOUR_APP_ID',
+  intercom_api_base: 'https://api-iam.intercom.io',
+}
+
+// 其他系统：脚本监听 command:* 统一事件完成自己的 open/hide/track 逻辑
+customer_service: {
+  enabled: true,
+  provider: 'custom',
+  script_url: 'https://support.example.com/widget.js',
+}
+```
+
+路由规则支持精确路径和结尾通配符，例如 `/tickets*` 可匹配工单列表及详情页。`hide_on_routes` 优先于 `show_on_routes`。`identify_user: false` 可完全关闭用户身份同步。
 
 ## API 接入方式
 

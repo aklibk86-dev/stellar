@@ -77,6 +77,31 @@
         <div class="content-card subscription-card area-subscription">
           <div class="card-header">
             <h3 class="card-title">{{ t('dashboard.mySubscription') }}</h3>
+            <div v-if="!loading && hasSubscription" class="subscription-header-actions">
+              <n-button
+                size="small"
+                secondary
+                type="primary"
+                :aria-label="t('dashboard.renew')"
+                @click="handleRenew"
+              >
+                <template #icon><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></template>
+                <span class="subscription-action-label-full">{{ t('dashboard.renew') }}</span>
+                <span class="subscription-action-label-compact">{{ t('common.renew') }}</span>
+              </n-button>
+              <n-button
+                size="small"
+                quaternary
+                type="warning"
+                :aria-label="t('dashboard.resetSubscribe')"
+                @click="handleResetSubscribe"
+                :loading="resetSubscribeLoading"
+              >
+                <template #icon><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></svg></template>
+                <span class="subscription-action-label-full">{{ t('dashboard.resetSubscribe') }}</span>
+                <span class="subscription-action-label-compact">{{ t('common.reset') }}</span>
+              </n-button>
+            </div>
           </div>
 
           <!-- 加载中 -->
@@ -114,14 +139,28 @@
                     <span>{{ t('dashboard.trafficUsage') }}</span>
                     <span class="sub-traffic-percent">{{ trafficPercent }}%</span>
                   </div>
-                  <n-progress
-                    type="line"
-                    :percentage="trafficPercent"
-                    :color="trafficColor"
-                    :height="8"
-                    :border-radius="4"
-                    :show-indicator="false"
-                  />
+                  <div class="sub-traffic-progress-row">
+                    <n-progress
+                      class="sub-traffic-progress"
+                      type="line"
+                      :percentage="trafficPercent"
+                      :color="trafficColor"
+                      :height="8"
+                      :border-radius="4"
+                      :show-indicator="false"
+                    />
+                    <n-button
+                      v-if="canResetTraffic"
+                      size="tiny"
+                      secondary
+                      type="primary"
+                      :loading="resetLoading"
+                      @click="handleResetTraffic"
+                    >
+                      <template #icon><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg></template>
+                      {{ t('dashboard.resetTraffic') }}
+                    </n-button>
+                  </div>
                   <div class="sub-traffic-detail">
                     <span>{{ formatTraffic(usedTraffic) }} {{ t('dashboard.usedTraffic') }}</span>
                     <span>{{ formatTraffic(remainingTraffic) }} {{ t('dashboard.remainingTraffic') }}</span>
@@ -136,15 +175,6 @@
                   <n-button secondary type="primary" @click="copySubscribeUrl">
                     <template #icon><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></template>
                     {{ t('dashboard.copyUrl') }}
-                  </n-button>
-                  <n-button
-                    v-if="isExpired || trafficPercent >= 70"
-                    secondary
-                    type="primary"
-                    @click="handleRenewOrReset"
-                    :loading="resetLoading"
-                  >
-                    {{ isExpired ? t('dashboard.renew') : t('dashboard.resetTraffic') }}
                   </n-button>
                 </div>
               </div>
@@ -393,7 +423,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NProgress, NSkeleton, useDialog } from 'naive-ui'
@@ -403,8 +433,9 @@ import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { userApi, normalizeListData } from '@/api'
 import http from '@/api/http'
-import type { Subscribe, User, TrafficLog, Order, Ticket } from '@/api/types'
+import type { Subscribe, User, TrafficLog, Order, Ticket, Plan } from '@/api/types'
 import { formatTraffic, formatMoney, formatDate } from '@/utils/format'
+import { can } from '@/utils/backend'
 import SubscribeImportModal from '@/components/SubscribeImportModal.vue'
 
 const { t } = useI18n()
@@ -416,9 +447,11 @@ const userStore = useUserStore()
 
 const user = ref<User | null>(null)
 const subscribe = ref<Subscribe | null>(null)
+const plans = ref<Plan[]>([])
 const showSubscribeModal = ref(false)
 const loading = ref(true)
 const resetLoading = ref(false)
+const resetSubscribeLoading = ref(false)
 
 // ===== 最近订单 =====
 const recentOrders = ref<Order[]>([])
@@ -483,6 +516,23 @@ const isExpired = computed(() => {
   const exp = subscribe.value?.expired_at
   if (exp === null || exp === undefined) return false
   return exp < Math.floor(Date.now() / 1000)
+})
+
+const resetPlan = computed(() => {
+  const planId = subscribe.value?.plan_id
+  return plans.value.find(plan => plan.id === planId) || subscribe.value?.plan || null
+})
+
+const hasResetPackage = computed(() => {
+  const resetPrice = resetPlan.value?.reset_price
+  return resetPrice !== null && resetPrice !== undefined
+})
+
+const usesNewPeriodReset = computed(() => can('newPeriod') && subscribe.value?.allow_new_period === true)
+
+const canResetTraffic = computed(() => {
+  if (!hasSubscription.value || isExpired.value) return false
+  return subscribe.value?.allow_new_period === true || hasResetPackage.value
 })
 
 const expireText = computed(() => {
@@ -725,34 +775,48 @@ const fetchData = async () => {
   if (!user.value) {
     user.value = await userStore.fetchUser()
   }
-  try {
-    const res = await userApi.getSubscribe()
-    subscribe.value = res.data
-  } catch (err) {
-    console.error('[Dashboard] 获取订阅信息失败:', err)
+  const [subscribeResult, plansResult] = await Promise.allSettled([
+    userApi.getSubscribe(),
+    userApi.getPlans(),
+  ])
+  if (subscribeResult.status === 'fulfilled') {
+    subscribe.value = subscribeResult.value.data
+  } else {
+    console.error('[Dashboard] 获取订阅信息失败:', subscribeResult.reason)
+  }
+  if (plansResult.status === 'fulfilled') {
+    plans.value = plansResult.value.data || []
+  } else {
+    console.error('[Dashboard] 获取套餐列表失败:', plansResult.reason)
+    plans.value = []
   }
   loading.value = false
 }
 
-const handleRenewOrReset = async () => {
-  if (isExpired.value) {
-    // 续费 → 跳转到套餐页面
-    const planId = subscribe.value?.plan_id
-    if (planId) {
-      router.push('/plans')
-    }
-    return
-  }
-  // 重置流量
+const handleRenew = () => {
+  router.push('/plans')
+}
+
+const handleResetTraffic = () => {
+  if (!canResetTraffic.value) return
+  const resetViaNewPeriod = usesNewPeriodReset.value
   dialog.warning({
     title: t('dashboard.resetTraffic'),
-    content: t('dashboard.resetTrafficConfirm'),
+    content: t(resetViaNewPeriod ? 'dashboard.newPeriodConfirm' : 'dashboard.resetTrafficConfirm'),
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       if (!subscribe.value?.plan_id) return
       resetLoading.value = true
       try {
+        if (resetViaNewPeriod) {
+          await userApi.newPeriod()
+          const subscribeRes = await userApi.getSubscribe()
+          subscribe.value = subscribeRes.data
+          message.success(t('dashboard.newPeriodSuccess'))
+          return
+        }
+
         const planId = subscribe.value.plan_id
         // 先检查是否有未完成订单
         const orderRes = await userApi.getOrderList()
@@ -774,6 +838,28 @@ const handleRenewOrReset = async () => {
         message.error(t('dashboard.resetTrafficFailed'))
       } finally {
         resetLoading.value = false
+      }
+    },
+  })
+}
+
+const handleResetSubscribe = () => {
+  dialog.warning({
+    title: t('dashboard.resetSubscribe'),
+    content: t('dashboard.resetSubscribeConfirm'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      resetSubscribeLoading.value = true
+      try {
+        await userApi.resetSecurity()
+        const res = await userApi.getSubscribe()
+        subscribe.value = res.data
+        message.success(t('dashboard.resetSubscribeSuccess'))
+      } catch {
+        message.error(t('dashboard.resetSubscribeFailed'))
+      } finally {
+        resetSubscribeLoading.value = false
       }
     },
   })
@@ -810,11 +896,21 @@ const copySubscribeUrl = async () => {
   }
 }
 
+let secondaryLoadTimer: number | null = null
+
 onMounted(() => {
-  fetchData()
-  fetchTrafficHeatmap()
-  fetchRecentOrders()
-  fetchRecentTickets()
+  void fetchData()
+  secondaryLoadTimer = window.setTimeout(() => {
+    void fetchTrafficHeatmap()
+    void fetchRecentOrders()
+    void fetchRecentTickets()
+  }, 100)
+})
+
+onBeforeUnmount(() => {
+  if (secondaryLoadTimer !== null) {
+    window.clearTimeout(secondaryLoadTimer)
+  }
 })
 </script>
 
@@ -892,6 +988,10 @@ onMounted(() => {
 .empty-icon p { font-size: 14px; margin: 0; }
 
 .subscription-body { flex: 1; display: flex; flex-direction: column; }
+.subscription-card .card-header { gap: 12px; }
+.subscription-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; flex-shrink: 0; }
+.subscription-header-actions :deep(.n-button) { min-width: 0; }
+.subscription-action-label-compact { display: none; }
 .subscription-overview { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(200px, 0.85fr); gap: 16px; align-items: stretch; flex: 1; }
 .subscription-summary { min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 12px; background: var(--stellar-bg-hover); }
 .sub-plan-name { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
@@ -907,6 +1007,9 @@ onMounted(() => {
 .sub-traffic-section { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 10px; background: var(--stellar-bg-card); border: 1px solid var(--stellar-border-light); }
 .sub-traffic-header { display: flex; justify-content: space-between; align-items: center; color: var(--stellar-text-secondary); font-size: 12px; }
 .sub-traffic-percent { color: var(--stellar-text); font-weight: 700; font-size: 13px; }
+.sub-traffic-progress-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sub-traffic-progress { flex: 1; min-width: 0; }
+.sub-traffic-progress-row :deep(.n-button) { flex-shrink: 0; }
 .sub-traffic-detail { display: flex; justify-content: space-between; gap: 12px; color: var(--stellar-text-muted); font-size: 11px; }
 .sub-controls { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; }
 
@@ -1034,6 +1137,16 @@ onMounted(() => {
   .area-quick,
   .area-orders,
   .area-tickets { grid-column: auto; grid-row: auto; }
+  /* Override the higher-specificity optional-card placement rules on phones. */
+  .dashboard-main:not(:has(.area-client)) .area-subscription,
+  .dashboard-main:not(:has(.area-client)) .area-quick,
+  .dashboard-main:not(:has(.area-quick)) .area-client,
+  .dashboard-main:not(:has(.area-client)):not(:has(.area-quick)) .area-subscription,
+  .dashboard-main:not(:has(.area-orders)) .area-tickets,
+  .dashboard-main:not(:has(.area-tickets)) .area-orders,
+  .dashboard-main:not(:has(.area-orders)):not(:has(.area-tickets)) .area-heatmap {
+    grid-column: auto;
+  }
   .area-orders, .area-tickets { height: auto; }
 }
 
@@ -1054,6 +1167,11 @@ onMounted(() => {
   .stats-grid { grid-template-columns: 1fr; }
   .welcome-banner { flex-direction: column; gap: 16px; align-items: flex-start; padding: 20px; }
   .banner-title { font-size: 18px; }
+  .subscription-card .card-header { align-items: flex-start; flex-wrap: wrap; }
+  .subscription-header-actions { width: 100%; }
+  .subscription-header-actions :deep(.n-button) { flex: 1 1 0; min-width: 0; }
+  .subscription-action-label-full { display: none; }
+  .subscription-action-label-compact { display: inline; }
   .sub-controls :deep(.n-button) { flex: 1; }
   .balance-amount { font-size: 22px; }
   .heatmap-stats { grid-template-columns: repeat(2, 1fr); }

@@ -45,10 +45,10 @@ export default defineConfig(({ mode }) => {
           entryFileNames: 'assets/stellar.js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
-          manualChunks: {
-            'vue-vendor': ['vue', 'vue-router', 'pinia'],
-            'naive-ui': ['naive-ui'],
-            'echarts': ['echarts', 'vue-echarts'],
+          manualChunks(id) {
+            if (id.includes('/node_modules/echarts/') || id.includes('/node_modules/zrender/')) {
+              return 'echarts'
+            }
           },
         },
       },

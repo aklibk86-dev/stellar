@@ -1,10 +1,19 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { ref } from 'vue'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteLocationNormalized,
+  type RouteRecordRaw,
+} from 'vue-router'
 import '@/utils/settings'
 import { useUserStore } from '@/stores/user'
 import { shouldCheckApiAvailability } from '@/utils/apiConfig'
 import i18n from '@/i18n'
+import NotFound from '@/views/NotFound.vue'
 
 let hasRedirectedToApiValidation = false
+export const isRouteLoading = ref(true)
+let navigationSequence = 0
 
 // Xboard generates hash-router mail links even when the theme uses history mode.
 if (window.location.hash.startsWith('#/login?')) {
@@ -132,10 +141,16 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'API 检测', noAuth: true },
   },
   {
+    path: '/404',
+    name: 'route-fallback',
+    component: NotFound,
+    meta: { title: '404', noAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    component: () => import('@/views/NotFound.vue'),
-    meta: { title: '404', noAuth: true },
+    component: NotFound,
+    meta: { title: '404' },
   },
 ]
 
@@ -145,7 +160,22 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
+const loginRedirect = (redirect: string) => ({
+  name: 'login',
+  query: { redirect, reason: 'login_required' },
+})
+
+const preloadRouteComponents = (to: RouteLocationNormalized) => {
+  const loaders = to.matched.flatMap((record) => Object.values(record.components || {}))
+  return Promise.allSettled(loaders.map((component) => {
+    if (typeof component !== 'function') return Promise.resolve()
+    return Promise.resolve((component as () => unknown)())
+  }))
+}
+
 router.beforeEach(async (to, _from, next) => {
+  navigationSequence += 1
+  isRouteLoading.value = true
   const userStore = useUserStore()
   const t = i18n.global.t
 
@@ -181,20 +211,53 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (!userStore.isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
+    next(loginRedirect(to.fullPath))
     return
   }
 
   if (!userStore.user) {
-    await userStore.fetchUser()
+    await Promise.all([
+      userStore.fetchUser(),
+      preloadRouteComponents(to),
+    ])
+  } else if (userStore.userLoadedFromCache) {
+    void userStore.fetchUser(true)
   }
 
   if (!userStore.isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
+    next(loginRedirect(to.fullPath))
     return
   }
 
   next()
+})
+
+router.afterEach(() => {
+  const completedSequence = navigationSequence
+  window.requestAnimationFrame(() => {
+    if (completedSequence === navigationSequence) {
+      isRouteLoading.value = false
+    }
+  })
+})
+
+let recoveringFromRouteError = false
+router.onError(async (error, to) => {
+  console.error('[Router] 页面加载失败:', error)
+  if (recoveringFromRouteError || to.name === 'route-fallback') {
+    isRouteLoading.value = false
+    return
+  }
+
+  recoveringFromRouteError = true
+  try {
+    await router.replace({
+      name: 'route-fallback',
+      query: { from: to.fullPath, reason: 'load_failed' },
+    })
+  } finally {
+    recoveringFromRouteError = false
+  }
 })
 
 export default router

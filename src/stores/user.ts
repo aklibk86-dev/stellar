@@ -10,7 +10,35 @@ import {
   normalizeGuestConfig,
 } from '@/utils/backend'
 
+const USER_CACHE_KEY = 'stellar_user_cache'
+const USER_CACHE_TTL = 5 * 60 * 1000
+
+const readCachedUser = (): User | null => {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(USER_CACHE_KEY) || 'null')
+    if (!cached?.user || Date.now() - Number(cached.cachedAt) > USER_CACHE_TTL) {
+      sessionStorage.removeItem(USER_CACHE_KEY)
+      return null
+    }
+    return cached.user as User
+  } catch {
+    sessionStorage.removeItem(USER_CACHE_KEY)
+    return null
+  }
+}
+
+const cacheUser = (user: User) => {
+  try {
+    sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify({
+      cachedAt: Date.now(),
+      user,
+    }))
+  } catch {
+  }
+}
+
 export const useUserStore = defineStore('user', () => {
+  const cachedUser = readCachedUser()
   const authToken = ref<string>(
     localStorage.getItem('stellar_auth_token')?.trim()
       || sessionStorage.getItem('stellar_auth_token')?.trim()
@@ -21,7 +49,8 @@ export const useUserStore = defineStore('user', () => {
       || sessionStorage.getItem('stellar_subscribe_token')?.trim()
       || '',
   )
-  const user = ref<User | null>(null)
+  const user = ref<User | null>(cachedUser)
+  const userLoadedFromCache = ref(Boolean(cachedUser))
   const guestConfig = ref<GuestConfig | null>(null)
 
   let fetchUserPromise: Promise<User | null> | null = null
@@ -46,13 +75,15 @@ export const useUserStore = defineStore('user', () => {
 
   const fetchUser = async (force = false): Promise<User | null> => {
     if (!authToken.value) return null
-    if (!force && fetchUserPromise) return fetchUserPromise
+    if (fetchUserPromise) return fetchUserPromise
     if (user.value && !force) return user.value
 
     fetchUserPromise = (async () => {
       try {
         const res = await userApi.getInfo()
         user.value = normalizeUser(res.data)
+        userLoadedFromCache.value = false
+        cacheUser(user.value)
         return res.data
       } catch (err: any) {
         // 仅当明确返回 401 时才登出，其他错误不清除登录状态
@@ -109,11 +140,13 @@ export const useUserStore = defineStore('user', () => {
     authToken.value = ''
     subscribeToken.value = ''
     user.value = null
+    userLoadedFromCache.value = false
     fetchUserPromise = null
     localStorage.removeItem('stellar_auth_token')
     localStorage.removeItem('stellar_subscribe_token')
     sessionStorage.removeItem('stellar_auth_token')
     sessionStorage.removeItem('stellar_subscribe_token')
+    sessionStorage.removeItem(USER_CACHE_KEY)
   }
 
   const checkLogin = async () => {
@@ -137,6 +170,7 @@ export const useUserStore = defineStore('user', () => {
     subscribeToken,
     token,
     user,
+    userLoadedFromCache,
     guestConfig,
     isLoggedIn,
     balance,

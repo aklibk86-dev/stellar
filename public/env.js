@@ -101,12 +101,47 @@ window.settings = {
     description: '',
   },
 
-  // Third-party customer service. Supports Tawk or a trusted custom script URL.
+  // 第三方客服：tawk / crisp / chatwoot / intercom / custom。
+  // 仅 enabled=true 时加载。标识登录用户会向客服平台发送用户 ID、邮箱和头像，可按需关闭。
   customer_service: {
     enabled: false,
-    provider: 'tawk', // 'tawk' | 'custom'
+    provider: 'tawk',
+
+    // 通用加载与可见性配置
+    load_delay: 800,
+    load_on_idle: true,
+    identify_user: true,
+    track_page_views: true,
+    show_on_routes: [], // 例如 ['/dashboard', '/tickets*']；空数组表示全部路由
+    hide_on_routes: ['/login', '/register', '/forget'],
+    hide_on_mobile: false,
+    tags: ['stellar'],
+    attributes: {},
+    allow_insecure_http: false,
+
+    // Tawk（https://www.tawk.to/）
     tawk_property_id: '',
     tawk_widget_id: 'default',
+    tawk_auto_start: true,
+    // 安全模式 hash 必须由后端使用 Tawk API Key 按当前用户生成，禁止在静态配置中填写通用值。
+    tawk_secure_hash: '',
+    // 直接透传 Tawk 官方 customStyle 对象。
+    tawk_custom_style: {},
+
+    // Crisp
+    crisp_website_id: '',
+
+    // Chatwoot
+    chatwoot_base_url: '',
+    chatwoot_website_token: '',
+    chatwoot_locale: 'auto',
+    chatwoot_position: 'right',
+
+    // Intercom
+    intercom_app_id: '',
+    intercom_api_base: 'https://api-iam.intercom.io',
+
+    // 自定义客服脚本（仅接受 HTTPS，localhost 除外）
     script_url: '',
   },
 
@@ -120,7 +155,7 @@ window.settings = {
   // ==========================================================
   background: {
     // 是否启用全站背景
-    enabled: false,
+    enabled: true,
 
     // 媒体类型：'image'（静态图片）或 'video'（视频背景）
     type: 'image',
@@ -128,7 +163,14 @@ window.settings = {
     // 媒体资源 URL
     // - type='image' 时填写图片地址（jpg/png/webp/svg 等）
     // - type='video' 时填写视频地址（mp4/webm/ogg 等，建议 mp4 + H.264 兼容性最佳）
-    url: '',
+    // 兼容旧配置：desktop_url / mobile_url 留空时作为两端的通用回退地址
+    url: 'https://pan.aklibk.com/f/M1cV/photo_2026-08-08_17-33-51.jpg',
+
+    // 电脑端壁纸 URL（视口宽度大于 767px 时优先使用）
+    desktop_url: '',
+
+    // 手机端壁纸 URL（视口宽度小于等于 767px 时优先使用）
+    mobile_url: '',
 
     // 视频封面图 URL（仅 type='video' 生效，视频加载前/不可用时显示）
     poster: '',

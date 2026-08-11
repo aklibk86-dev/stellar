@@ -8,6 +8,15 @@ declare module '*.vue' {
 
 interface Window {
   routerBase: string
+  customerServiceIdentity?: {
+    user_id?: string
+    hash?: string
+    name?: string
+    email?: string
+    avatar?: string
+    attributes?: Record<string, string | number | boolean>
+  }
+  stellarCustomerService?: import('@/utils/customerService').CustomerServicePublicApi
   settings: {
     title: string
     description: string
@@ -45,13 +54,7 @@ interface Window {
       title?: string
       description?: string
     }
-    customer_service?: {
-      enabled?: boolean
-      provider?: 'tawk' | 'custom'
-      tawk_property_id?: string
-      tawk_widget_id?: string
-      script_url?: string
-    }
+    customer_service?: import('@/utils/customerService').CustomerServiceConfig
     /** 全站背景配置（支持图片/视频） */
     background?: {
       /** 是否启用全站背景 */
@@ -60,6 +63,10 @@ interface Window {
       type: 'image' | 'video'
       /** 媒体资源 URL（图片或视频地址） */
       url: string
+      /** 电脑端媒体资源 URL；为空时回退到 url */
+      desktop_url?: string
+      /** 手机端媒体资源 URL；为空时回退到 url 或 desktop_url */
+      mobile_url?: string
       /** 备用图片 URL（视频不可用时回退，可选） */
       poster?: string
       /** 背景遮罩透明度 0-1（叠加在媒体之上的纯色遮罩，提升内容可读性） */

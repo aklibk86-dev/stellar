@@ -84,19 +84,50 @@ html.stellar-bg-on:not(.stellar-route-landing) .api-loading-page,
 html.stellar-bg-on:not(.stellar-route-landing) .not-found {
   background: transparent !important;
 }
-/* 侧边栏与顶栏保留半透明，配合毛玻璃效果 */
+
+/* 固定背景和页面内容都位于 #app 内；为页面根容器建立前景层级，
+   防止 z-index: 0 的背景覆盖普通流中的卡片、标题和表格内容。 */
+html.stellar-bg-on:not(.stellar-route-landing) .stellar-layout,
+html.stellar-bg-on:not(.stellar-route-landing) .auth-page,
+html.stellar-bg-on:not(.stellar-route-landing) .api-loading-page,
+html.stellar-bg-on:not(.stellar-route-landing) .not-found {
+  position: relative;
+  z-index: 1;
+}
+
+/* 背景图与毛玻璃是两个独立开关。未开启毛玻璃时，导航区域必须保持实色，
+   否则默认的玻璃透明度会让壁纸穿透 UI，且仍会错误地执行 backdrop-filter。 */
 html.stellar-bg-on:not(.stellar-route-landing) .stellar-sidebar,
 html.stellar-bg-on:not(.stellar-route-landing) .stellar-header {
-  /* 实色兜底（不支持 color-mix 的浏览器），color-mix 支持时被下一行覆盖 */
-  background-color: var(--stellar-bg-sidebar) !important;
-  background-color: color-mix(in srgb, var(--stellar-bg-sidebar) calc(var(--stellar-glass-opacity, 0.65) * 100%), transparent) !important;
-  -webkit-backdrop-filter: blur(var(--stellar-glass-blur, 12px));
-  backdrop-filter: blur(var(--stellar-glass-blur, 12px));
+  background: var(--stellar-bg-sidebar) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 html.stellar-bg-on:not(.stellar-route-landing) .stellar-header {
+  background: var(--stellar-bg-card) !important;
+}
+
+/* 仅在毛玻璃开关开启时让导航区域透出背景并执行模糊。 */
+html.stellar-bg-on.stellar-glass-on:not(.stellar-route-landing) .stellar-sidebar,
+html.stellar-bg-on.stellar-glass-on:not(.stellar-route-landing) .stellar-header {
   /* 实色兜底（不支持 color-mix 的浏览器），color-mix 支持时被下一行覆盖 */
-  background-color: var(--stellar-bg-card) !important;
-  background-color: color-mix(in srgb, var(--stellar-bg-card) calc(var(--stellar-glass-opacity, 0.65) * 100%), transparent) !important;
+  background: var(--stellar-bg-sidebar) !important;
+  background: color-mix(in srgb, var(--stellar-bg-sidebar) calc(var(--stellar-glass-opacity, 0.65) * 100%), transparent) !important;
+  -webkit-backdrop-filter: blur(var(--stellar-glass-blur, 12px)) !important;
+  backdrop-filter: blur(var(--stellar-glass-blur, 12px)) !important;
+}
+html.stellar-bg-on.stellar-glass-on:not(.stellar-route-landing) .stellar-header {
+  background: var(--stellar-bg-card) !important;
+  background: color-mix(in srgb, var(--stellar-bg-card) calc(var(--stellar-glass-opacity, 0.65) * 100%), transparent) !important;
+}
+
+/* 没有毛玻璃时，页面标题需要实色承载面，保证任意壁纸上都可读。 */
+html.stellar-bg-on:not(.stellar-glass-on):not(.stellar-route-landing) .page-header {
+  padding: 16px 20px;
+  background: var(--stellar-bg-card);
+  border: 1px solid var(--stellar-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 /* auth 页面遮罩层透明，由全局背景遮罩接管 */
 html.stellar-bg-on:not(.stellar-route-landing) .auth-overlay {

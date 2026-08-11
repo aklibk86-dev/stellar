@@ -81,7 +81,13 @@ http.interceptors.response.use(
       if (status === 401) {
         const userStore = useUserStore()
         userStore.logout()
-        router.push('/login')
+        const redirect = router.currentRoute.value.fullPath
+        if (router.currentRoute.value.name !== 'login') {
+          router.push({
+            name: 'login',
+            query: { redirect, reason: 'login_required' },
+          })
+        }
       }
 
       const apiError: ApiError = {

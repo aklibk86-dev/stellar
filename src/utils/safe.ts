@@ -1,26 +1,14 @@
-import DOMPurify from 'dompurify'
 import { marked } from 'marked'
+import { sanitizeHtml } from './sanitize'
+
+export { sanitizeHtml } from './sanitize'
+export { getSafeRedirect, isSafeRedirect, isValidHttpUrl, truncate } from './navigation'
 
 // 配置 marked：启用 GFM（表格、删除线等）与换行转 <br>
 marked.setOptions({
   breaks: true,
   gfm: true,
 })
-
-// 全局 hook：为所有 <a> 链接添加安全属性，统一在新标签页打开，防止 tabnabbing
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A' && node.getAttribute('href')) {
-    node.setAttribute('target', '_blank')
-    node.setAttribute('rel', 'noopener noreferrer')
-  }
-})
-
-export function sanitizeHtml(html: string | null | undefined): string {
-  if (!html) return ''
-  return DOMPurify.sanitize(html, {
-    ADD_ATTR: ['target'],
-  })
-}
 
 // 转义 HTML 特殊字符，防止 JSON 值中的内容注入
 // 使用 String.fromCharCode 避免实体字符在源码中被二次转义
@@ -37,7 +25,6 @@ function escapeHtml(str: unknown): string {
     .replace(/"/g, ENT_QUOT)
     .replace(/'/g, ENT_SQUOT)
 }
-
 /**
  * 将结构化 JSON 数据渲染为 HTML。
  *
@@ -228,36 +215,4 @@ export function renderRichContent(content: string | null | undefined): string {
   // 注意：ESM 模式下 marked.parse() 默认返回 Promise，需传入 {async: false} 强制同步
   const html = marked.parse(trimmed, { async: false }) as string
   return sanitizeHtml(html)
-}
-
-export function isSafeRedirect(path: string): boolean {
-  if (!path) return false
-  try {
-    const decoded = decodeURIComponent(path).replace(/\\/g, '/')
-    return decoded.startsWith('/') && !decoded.startsWith('//')
-  } catch {
-    return false
-  }
-}
-
-export function getSafeRedirect(path: string | undefined | null, fallback = '/dashboard'): string {
-  if (!path) return fallback
-  if (isSafeRedirect(path)) return path
-  return fallback
-}
-
-export function isValidHttpUrl(url: string): boolean {
-  if (!url) return true
-  try {
-    const u = new URL(url)
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-export function truncate(str: string | null | undefined, maxLen: number): string {
-  if (!str) return ''
-  if (str.length <= maxLen) return str
-  return str.slice(0, maxLen)
 }

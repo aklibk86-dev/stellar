@@ -10,7 +10,7 @@
     <!-- 图片背景 -->
     <img
       v-if="appStore.background.type === 'image'"
-      :src="appStore.background.url"
+      :src="currentBackgroundUrl"
       class="stellar-bg-media"
       alt=""
       draggable="false"
@@ -19,7 +19,8 @@
     <!-- 视频背景 -->
     <video
       v-else
-      :src="appStore.background.url"
+      :key="currentBackgroundUrl"
+      :src="currentBackgroundUrl"
       :poster="appStore.background.poster || undefined"
       class="stellar-bg-media"
       :autoplay="appStore.background.video_autoplay"
@@ -41,9 +42,33 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
+const MOBILE_BACKGROUND_QUERY = '(max-width: 767px)'
+const mobileMediaQuery = typeof window !== 'undefined'
+  ? window.matchMedia(MOBILE_BACKGROUND_QUERY)
+  : null
+const isMobileViewport = ref(mobileMediaQuery?.matches ?? false)
+
+const currentBackgroundUrl = computed(() => (
+  isMobileViewport.value
+    ? appStore.mobileBackgroundUrl
+    : appStore.desktopBackgroundUrl
+))
+
+const handleViewportChange = (event: MediaQueryListEvent) => {
+  isMobileViewport.value = event.matches
+}
+
+onMounted(() => {
+  mobileMediaQuery?.addEventListener('change', handleViewportChange)
+})
+
+onUnmounted(() => {
+  mobileMediaQuery?.removeEventListener('change', handleViewportChange)
+})
 </script>
 
 <style scoped>

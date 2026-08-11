@@ -35,8 +35,28 @@ const defaultSettings = {
   customer_service: {
     enabled: false,
     provider: 'tawk' as const,
+    load_delay: 800,
+    load_on_idle: true,
+    identify_user: true,
+    track_page_views: true,
+    show_on_routes: [] as string[],
+    hide_on_routes: [] as string[],
+    hide_on_mobile: false,
+    attributes: {} as Record<string, string | number | boolean>,
+    tags: [] as string[],
+    allow_insecure_http: false,
     tawk_property_id: '',
     tawk_widget_id: 'default',
+    tawk_auto_start: true,
+    tawk_secure_hash: '',
+    tawk_custom_style: {} as Record<string, unknown>,
+    crisp_website_id: '',
+    chatwoot_base_url: '',
+    chatwoot_website_token: '',
+    chatwoot_locale: 'auto',
+    chatwoot_position: 'right' as const,
+    intercom_app_id: '',
+    intercom_api_base: 'https://api-iam.intercom.io',
     script_url: '',
   },
   api: {
@@ -61,6 +81,8 @@ const defaultSettings = {
     enabled: false,
     type: 'image' as const,
     url: '',
+    desktop_url: '',
+    mobile_url: '',
     poster: '',
     overlay_opacity: 0.35,
     overlay_color: '#000000',
@@ -98,6 +120,9 @@ const buildSettings = (): Record<string, any> => {
   const apiBase = String(import.meta.env.VITE_API_BASE_URL || '').trim()
   const clients = parseBuildList(import.meta.env.VITE_CLIENT_IMPORTS)
   const socialPlatforms = parseBuildList(import.meta.env.VITE_SOCIAL_SHARE_PLATFORMS)
+  const customerServiceShowRoutes = parseBuildList(import.meta.env.VITE_CUSTOMER_SERVICE_SHOW_ROUTES)
+  const customerServiceHideRoutes = parseBuildList(import.meta.env.VITE_CUSTOMER_SERVICE_HIDE_ROUTES)
+  const customerServiceTags = parseBuildList(import.meta.env.VITE_CUSTOMER_SERVICE_TAGS)
   const settings: Record<string, any> = {}
 
   if (hasBuildEnv('VITE_SITE_TITLE')) settings.title = import.meta.env.VITE_SITE_TITLE
@@ -124,8 +149,24 @@ const buildSettings = (): Record<string, any> => {
   if ([
     'VITE_CUSTOMER_SERVICE_ENABLED',
     'VITE_CUSTOMER_SERVICE_PROVIDER',
+    'VITE_CUSTOMER_SERVICE_LOAD_DELAY',
+    'VITE_CUSTOMER_SERVICE_LOAD_ON_IDLE',
+    'VITE_CUSTOMER_SERVICE_IDENTIFY_USER',
+    'VITE_CUSTOMER_SERVICE_TRACK_PAGE_VIEWS',
+    'VITE_CUSTOMER_SERVICE_SHOW_ROUTES',
+    'VITE_CUSTOMER_SERVICE_HIDE_ROUTES',
+    'VITE_CUSTOMER_SERVICE_HIDE_ON_MOBILE',
+    'VITE_CUSTOMER_SERVICE_TAGS',
     'VITE_TAWK_PROPERTY_ID',
     'VITE_TAWK_WIDGET_ID',
+    'VITE_TAWK_AUTO_START',
+    'VITE_CRISP_WEBSITE_ID',
+    'VITE_CHATWOOT_BASE_URL',
+    'VITE_CHATWOOT_WEBSITE_TOKEN',
+    'VITE_CHATWOOT_LOCALE',
+    'VITE_CHATWOOT_POSITION',
+    'VITE_INTERCOM_APP_ID',
+    'VITE_INTERCOM_API_BASE',
     'VITE_CUSTOMER_SERVICE_SCRIPT_URL',
   ].some(hasBuildEnv)) {
     settings.customer_service = {
@@ -135,8 +176,38 @@ const buildSettings = (): Record<string, any> => {
       ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_PROVIDER')
         ? { provider: import.meta.env.VITE_CUSTOMER_SERVICE_PROVIDER }
         : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_LOAD_DELAY')
+        ? { load_delay: Number(import.meta.env.VITE_CUSTOMER_SERVICE_LOAD_DELAY) || 0 }
+        : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_LOAD_ON_IDLE')
+        ? { load_on_idle: import.meta.env.VITE_CUSTOMER_SERVICE_LOAD_ON_IDLE !== 'false' }
+        : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_IDENTIFY_USER')
+        ? { identify_user: import.meta.env.VITE_CUSTOMER_SERVICE_IDENTIFY_USER !== 'false' }
+        : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_TRACK_PAGE_VIEWS')
+        ? { track_page_views: import.meta.env.VITE_CUSTOMER_SERVICE_TRACK_PAGE_VIEWS !== 'false' }
+        : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_SHOW_ROUTES') ? { show_on_routes: customerServiceShowRoutes } : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_HIDE_ROUTES') ? { hide_on_routes: customerServiceHideRoutes } : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_HIDE_ON_MOBILE')
+        ? { hide_on_mobile: import.meta.env.VITE_CUSTOMER_SERVICE_HIDE_ON_MOBILE === 'true' }
+        : {}),
+      ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_TAGS') ? { tags: customerServiceTags } : {}),
       ...(hasBuildEnv('VITE_TAWK_PROPERTY_ID') ? { tawk_property_id: import.meta.env.VITE_TAWK_PROPERTY_ID } : {}),
       ...(hasBuildEnv('VITE_TAWK_WIDGET_ID') ? { tawk_widget_id: import.meta.env.VITE_TAWK_WIDGET_ID } : {}),
+      ...(hasBuildEnv('VITE_TAWK_AUTO_START')
+        ? { tawk_auto_start: import.meta.env.VITE_TAWK_AUTO_START !== 'false' }
+        : {}),
+      ...(hasBuildEnv('VITE_CRISP_WEBSITE_ID') ? { crisp_website_id: import.meta.env.VITE_CRISP_WEBSITE_ID } : {}),
+      ...(hasBuildEnv('VITE_CHATWOOT_BASE_URL') ? { chatwoot_base_url: import.meta.env.VITE_CHATWOOT_BASE_URL } : {}),
+      ...(hasBuildEnv('VITE_CHATWOOT_WEBSITE_TOKEN')
+        ? { chatwoot_website_token: import.meta.env.VITE_CHATWOOT_WEBSITE_TOKEN }
+        : {}),
+      ...(hasBuildEnv('VITE_CHATWOOT_LOCALE') ? { chatwoot_locale: import.meta.env.VITE_CHATWOOT_LOCALE } : {}),
+      ...(hasBuildEnv('VITE_CHATWOOT_POSITION') ? { chatwoot_position: import.meta.env.VITE_CHATWOOT_POSITION } : {}),
+      ...(hasBuildEnv('VITE_INTERCOM_APP_ID') ? { intercom_app_id: import.meta.env.VITE_INTERCOM_APP_ID } : {}),
+      ...(hasBuildEnv('VITE_INTERCOM_API_BASE') ? { intercom_api_base: import.meta.env.VITE_INTERCOM_API_BASE } : {}),
       ...(hasBuildEnv('VITE_CUSTOMER_SERVICE_SCRIPT_URL')
         ? { script_url: import.meta.env.VITE_CUSTOMER_SERVICE_SCRIPT_URL }
         : {}),

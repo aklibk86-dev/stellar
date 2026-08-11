@@ -99,7 +99,7 @@ import { NModal, NButton, NCheckbox } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Notice } from '@/api/types'
 import { formatDate } from '@/utils/format'
-import { sanitizeHtml } from '@/utils/safe'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const { t } = useI18n()
 
