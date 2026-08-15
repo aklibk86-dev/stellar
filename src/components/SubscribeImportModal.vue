@@ -5,7 +5,7 @@
     :bordered="false"
     :auto-focus="false"
     class="subscribe-modal"
-    style="width: min(920px, calc(100vw - 32px))"
+    style="width: min(860px, calc(100vw - 32px))"
   >
     <template #header>
       <div class="modal-heading">
@@ -42,7 +42,6 @@
               @click="activePlatform = platform.key"
             >
               {{ platform.label }}
-              <span>{{ countClients(platform.key) }}</span>
             </button>
           </div>
 
@@ -60,9 +59,6 @@
               <span class="client-info">
                 <strong>{{ client.name }}</strong>
                 <small>{{ getPlatformLabel(client.platform) }}</small>
-              </span>
-              <span class="import-action">
-                <StellarIcon name="chevron-forward" :size="17" />
               </span>
             </button>
             <p v-if="filteredClients.length === 0" class="client-empty">
@@ -93,7 +89,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NModal, NButton } from 'naive-ui'
+import { useMessage, NModal } from 'naive-ui'
 import StellarIcon from '@/components/StellarIcon.vue'
 import { getPublicPath } from '@/utils/settings'
 import QRCode from 'qrcode'
@@ -259,9 +255,6 @@ const filteredClients = computed(() =>
   enabledClients.value.filter((client) => client.platform === activePlatform.value),
 )
 
-const countClients = (platform: Platform) =>
-  enabledClients.value.filter((client) => client.platform === platform).length
-
 const getPlatformLabel = (platform: Platform) =>
   platformTabs.find((item) => item.key === platform)?.label || platform
 
@@ -276,78 +269,75 @@ const importToClient = (client: Client) => {
 
 <style scoped>
 :global(.subscribe-modal.n-card) {
-  border-radius: 24px;
+  border: 1px solid var(--stellar-border);
+  border-radius: 16px;
   overflow: hidden;
   background: var(--stellar-bg-card);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
 }
 
 :global(.subscribe-modal .n-card-header) {
-  padding: 24px 26px 18px;
+  padding: 22px 24px 18px;
   border-bottom: 1px solid var(--stellar-border-light);
 }
 
 :global(.subscribe-modal .n-card__content) {
-  padding: 22px 26px 26px;
+  padding: 20px 24px 24px;
+  background: color-mix(in srgb, var(--stellar-bg-hover) 42%, var(--stellar-bg-card));
 }
 
-.modal-heading { display: flex; align-items: center; gap: 13px; }
-.heading-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; color: #fff; background: linear-gradient(135deg, var(--stellar-primary), #6366f1); box-shadow: 0 8px 18px rgba(59, 130, 246, 0.24); }
-.modal-heading h2 { margin: 0; color: var(--stellar-text); font-size: 18px; line-height: 1.35; }
+.modal-heading { display: flex; align-items: center; gap: 12px; }
+.heading-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; color: #fff; background: var(--stellar-primary); box-shadow: 0 6px 14px color-mix(in srgb, var(--stellar-primary) 24%, transparent); }
+.modal-heading h2 { margin: 0; color: var(--stellar-text); font-size: 17px; line-height: 1.35; }
 .modal-heading p { margin: 3px 0 0; color: var(--stellar-text-muted); font-size: 12px; font-weight: 400; }
 
-.subscribe-import { display: flex; flex-direction: column; gap: 20px; }
+.subscribe-import { min-width: 0; }
 .panel-header p, .qr-copy p { margin: 4px 0 0; color: var(--stellar-text-muted); font-size: 12px; line-height: 1.55; }
 
-.content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 20px; }
-.client-panel, .qr-panel { min-width: 0; border: 1px solid var(--stellar-border-light); border-radius: 18px; background: var(--stellar-bg-card); }
-.client-panel { padding: 18px; }
+.content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: stretch; }
+.client-panel, .qr-panel { min-width: 0; border: 1px solid var(--stellar-border); border-radius: 8px; background: var(--stellar-bg-card); }
+.client-panel { padding: 18px 18px 16px; }
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .panel-header h3, .qr-copy h3 { margin: 0; color: var(--stellar-text); font-size: 15px; }
-.detected-badge { flex-shrink: 0; padding: 5px 9px; border-radius: 999px; color: var(--stellar-primary); background: var(--stellar-primary-light); font-size: 11px; font-weight: 700; }
+.detected-badge { flex-shrink: 0; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--stellar-primary) 20%, transparent); border-radius: 6px; color: var(--stellar-primary); background: var(--stellar-primary-light); font-size: 11px; font-weight: 700; }
 
-.platform-tabs { display: flex; gap: 6px; margin: 16px 0; padding: 4px; overflow-x: auto; border-radius: 12px; background: var(--stellar-bg-hover); }
-.platform-tab { flex: 1; min-width: max-content; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; padding: 8px 10px; color: var(--stellar-text-secondary); background: transparent; font-size: 12px; cursor: pointer; transition: .2s ease; }
-.platform-tab span { min-width: 18px; padding: 1px 5px; border-radius: 999px; color: var(--stellar-text-muted); background: var(--stellar-bg-card); font-size: 10px; }
+.platform-tabs { display: grid; grid-template-columns: repeat(4, minmax(max-content, 1fr)); gap: 3px; margin: 16px 0 14px; padding: 3px; overflow-x: auto; border: 1px solid var(--stellar-border-light); border-radius: 8px; background: var(--stellar-bg-hover); }
+.platform-tab { min-width: max-content; border: 0; border-radius: 6px; padding: 8px 12px; color: var(--stellar-text-secondary); background: transparent; font-size: 12px; line-height: 1.35; cursor: pointer; transition: color .18s ease, background .18s ease, box-shadow .18s ease; }
 .platform-tab:hover { color: var(--stellar-primary); }
-.platform-tab.active { color: var(--stellar-primary); background: var(--stellar-bg-card); box-shadow: 0 3px 10px rgba(15, 23, 42, .07); font-weight: 700; }
-.platform-tab.active span { color: #fff; background: var(--stellar-primary); }
+.platform-tab.active { color: var(--stellar-primary); background: var(--stellar-bg-card); box-shadow: 0 1px 4px rgba(15, 23, 42, .1); font-weight: 700; }
+.platform-tab:focus-visible, .client-item:focus-visible { outline: 2px solid var(--stellar-primary); outline-offset: 2px; }
 
-.client-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; max-height: 330px; padding: 1px 4px 1px 1px; overflow-y: auto; }
+.client-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 320px; padding: 1px 4px 1px 1px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--stellar-border) transparent; }
 .client-empty { grid-column: 1 / -1; margin: 12px 0; color: var(--stellar-text-muted); font-size: 13px; text-align: center; }
-.client-item { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--stellar-border-light); border-radius: 13px; color: inherit; background: var(--stellar-bg-card); text-align: left; cursor: pointer; transition: border-color .2s, background .2s, transform .2s, box-shadow .2s; }
-.client-item:hover { border-color: color-mix(in srgb, var(--stellar-primary) 45%, var(--stellar-border)); background: var(--stellar-primary-light); transform: translateY(-1px); box-shadow: 0 7px 18px rgba(15, 23, 42, .07); }
-.client-icon { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--stellar-border-light); border-radius: 11px; background: #fff; }
-.client-logo { width: 34px; height: 34px; object-fit: contain; }
+.client-item { min-width: 0; min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--stellar-border-light); border-radius: 8px; color: inherit; background: var(--stellar-bg-card); text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.client-item:hover { border-color: color-mix(in srgb, var(--stellar-primary) 42%, var(--stellar-border)); background: var(--stellar-primary-light); box-shadow: 0 3px 10px rgba(15, 23, 42, .06); }
+.client-icon { width: 38px; height: 38px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--stellar-border-light); border-radius: 8px; background: #fff; }
+.client-logo { width: 30px; height: 30px; object-fit: contain; }
 .client-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.client-info strong { overflow: hidden; color: var(--stellar-text); font-size: 12px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.client-info strong { overflow: hidden; color: var(--stellar-text); font-size: 13px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .client-info small { color: var(--stellar-text-muted); font-size: 10px; }
-.import-action { width: 26px; height: 26px; flex-shrink: 0; display: grid; place-items: center; border-radius: 8px; color: var(--stellar-text-muted); background: var(--stellar-bg-hover); transition: .2s; }
-.client-item:hover .import-action { color: #fff; background: var(--stellar-primary); }
 
-.qr-panel { display: flex; flex-direction: column; align-items: center; padding: 18px; text-align: center; background: linear-gradient(180deg, var(--stellar-bg-card), var(--stellar-primary-light)); }
+.qr-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; text-align: center; }
 .qr-copy { width: 100%; }
-.qr-frame { width: 174px; height: 174px; display: grid; place-items: center; margin: 18px 0 14px; padding: 9px; border: 1px solid var(--stellar-border-light); border-radius: 16px; color: var(--stellar-text-muted); background: #fff; box-shadow: 0 10px 30px rgba(15, 23, 42, .1); }
+.qr-frame { width: 168px; height: 168px; display: grid; place-items: center; margin: 18px 0 14px; padding: 8px; border: 1px solid var(--stellar-border); border-radius: 8px; color: var(--stellar-text-muted); background: #fff; box-shadow: 0 6px 18px rgba(15, 23, 42, .08); }
 .qr-frame.disabled { opacity: .5; }
-.qr-img { width: 100%; height: 100%; display: block; border-radius: 8px; object-fit: contain; }
+.qr-img { width: 100%; height: 100%; display: block; border-radius: 4px; object-fit: contain; }
 .security-tip { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--stellar-text-muted); font-size: 10px; }
 .tip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--stellar-success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stellar-success) 18%, transparent); }
 
 @media (max-width: 760px) {
   :global(.subscribe-modal .n-card-header) { padding: 20px 18px 16px; }
   :global(.subscribe-modal .n-card__content) { padding: 16px 18px 20px; }
-  .url-card { grid-template-columns: 1fr; gap: 12px; }
   .content-grid { grid-template-columns: 1fr; }
   .qr-panel { display: none; }
 }
 
 @media (max-width: 520px) {
-  :global(.subscribe-modal.n-card) { border-radius: 18px; }
+  :global(.subscribe-modal.n-card) { border-radius: 12px; }
   .modal-heading p { display: none; }
-  .url-input-wrap { flex-direction: column; }
-  .url-input-wrap :deep(.n-button) { width: 100%; }
   .client-panel { padding: 14px; }
   .client-list { grid-template-columns: 1fr; max-height: 360px; }
   .detected-badge { display: none; }
+  .platform-tab { padding-inline: 10px; }
 }
 </style>

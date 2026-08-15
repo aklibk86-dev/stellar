@@ -7,7 +7,7 @@
 
 Stellar Theme 是一套面向 XBoard 的现代化用户端主题，基于 Vue 3、TypeScript 与 Vite 构建，覆盖落地页、认证、套餐购买、订单、工单、邀请、知识库、流量统计、订阅导入和个人资料等完整功能。
 
-支持中英文切换、深浅色主题、响应式布局、多 API 可用性检测、运行时配置、子目录部署及 CDN 静态资源加速。大部分站点信息和 API 设置均可通过 `public/env.js` 修改，无需重新构建。
+支持中英文切换、深浅色主题、响应式布局、多 API 可用性检测、运行时配置及子目录部署。大部分站点信息和 API 设置均可通过 `public/env.js` 修改，无需重新构建。
 
 兼容两类后端：
 - **cedar2025/Xboard**：支持魔法链接登录、礼品卡、Turnstile/reCAPTCHA v3
@@ -86,20 +86,7 @@ npm install
 
 ### 3. 配置开发 API
 
-复制环境变量模板：
-
-```bat
-copy .env.example .env.development
-```
-
-修改 `.env.development` 中的后端地址：
-
-```env
-VITE_API_BASE_URL=https://api.example.com
-VITE_BACKEND_TYPE=xboard
-```
-
-> 开发环境可使用 `.env.development`；生产环境可使用 `.env.production` 构建，或在部署后修改 `public/env.js`。
+在 `public/env.js` 的 `api` 配置中填写后端地址和类型。该文件是项目唯一的站点配置入口，修改后无需重新构建。
 
 ### 4. 启动开发服务器
 
@@ -132,45 +119,6 @@ npm run preview
 | `npm run preview` | 预览构建产物 |
 
 ## 配置说明
-
-### 构建时配置
-
-复制示例文件：
-
-```bash
-# Windows
-copy .env.example .env.production
-
-# Linux/macOS
-cp .env.example .env.production
-```
-
-| 变量 | 说明 |
-| --- | --- |
-| `VITE_BASE` | 构建资源基础路径 |
-| `VITE_CDN_URL` | 静态资源 CDN 前缀 |
-| `VITE_API_BASE_URL` | 后端 API 根地址 |
-| `VITE_BACKEND_TYPE` | 后端类型：`xboard` / `v2board` / `auto` |
-| `VITE_CLIENT_IMPORTS_ENABLED` | 是否显示一键导入客户端列表 |
-| `VITE_CLIENT_IMPORTS` | 允许显示的客户端 ID，使用逗号分隔，留空显示全部 |
-| `VITE_SOCIAL_SHARE_ENABLED` | 是否显示邀请分享区域 |
-| `VITE_SOCIAL_SHARE_PLATFORMS` | 分享平台列表，使用逗号分隔 |
-| `VITE_CUSTOMER_SERVICE_ENABLED` | 是否加载第三方客服 |
-| `VITE_CUSTOMER_SERVICE_PROVIDER` | 客服类型：`tawk` / `crisp` / `chatwoot` / `intercom` / `custom` |
-| `VITE_CUSTOMER_SERVICE_LOAD_DELAY` | 客服脚本延迟加载毫秒数 |
-| `VITE_CUSTOMER_SERVICE_LOAD_ON_IDLE` | 是否在浏览器空闲时加载 |
-| `VITE_CUSTOMER_SERVICE_IDENTIFY_USER` | 是否向客服平台同步登录用户身份 |
-| `VITE_CUSTOMER_SERVICE_SHOW_ROUTES` | 允许显示的路由，逗号分隔，支持结尾 `*` |
-| `VITE_CUSTOMER_SERVICE_HIDE_ROUTES` | 禁止显示的路由，逗号分隔，优先级高于允许列表 |
-| `VITE_TAWK_PROPERTY_ID` | Tawk Property ID |
-| `VITE_TAWK_WIDGET_ID` | Tawk Widget ID |
-| `VITE_CRISP_WEBSITE_ID` | Crisp Website ID |
-| `VITE_CHATWOOT_BASE_URL` | Chatwoot 部署地址 |
-| `VITE_CHATWOOT_WEBSITE_TOKEN` | Chatwoot Website Token |
-| `VITE_INTERCOM_APP_ID` | Intercom App ID |
-| `VITE_CUSTOMER_SERVICE_SCRIPT_URL` | `custom` 客服的 HTTPS 脚本地址 |
-
-仅显式设置的 `VITE_*` 字段会覆盖 `public/env.js` 中对应配置；修改 `.env` 后必须重新构建。未设置的字段仍可通过 `public/env.js` 在部署后动态调整。
 
 ### 运行时配置
 
@@ -449,16 +397,6 @@ location /stellar/ {
 }
 ```
 
-### CDN 部署
-
-```env
-VITE_CDN_URL=https://cdn.example.com/stellar/
-```
-
-- `assets/` 上传到 CDN
-- `index.html` 和 `env.js` 保留在源站
-- 带哈希的资源可长期缓存
-
 ## 推荐缓存策略
 
 | 文件 | 策略 |
@@ -487,7 +425,6 @@ stellar/
 │  ├─ views/          # 页面视图
 │  ├─ App.vue
 │  └─ main.ts
-├─ .env.example       # 环境变量示例
 ├─ nginx.conf.example # Nginx 配置示例
 └─ package.json
 ```

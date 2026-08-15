@@ -9,13 +9,6 @@ build/
 # Scripts (build-time only)
 scripts/
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-.env.development
-!.env.example
-
 # Logs
 *.log
 npm-debug.log*
