@@ -1,64 +1,84 @@
 <template>
   <div class="sidebar-menu">
-    <template v-for="item in menuItems" :key="item.name">
+    <template v-for="(item, index) in menuItems" :key="`${item.type}-${item.label}-${index}`">
       <!-- 分组标题 -->
-      <div v-if="item.group && !appStore.sidebarCollapsed" class="menu-group-title">
-        {{ t(`nav.${item.group}`) }}
+      <div v-if="item.type === 'group' && !appStore.sidebarCollapsed" class="menu-group-title">
+        {{ item.label }}
       </div>
-      <!-- 菜单项 -->
+      <!-- 站内菜单项 -->
       <router-link
-        v-if="!item.group && item.path"
-        :to="`/${item.path}`"
+        v-else-if="item.to"
+        :to="item.to"
         class="menu-item"
-        :class="{ 'active': isActive(item.path) }"
+        :class="{ 'active': isActive(item.to) }"
+        :title="appStore.sidebarCollapsed ? item.label : undefined"
+        :aria-label="item.label"
         @click="appStore.closeMobileSidebar()"
       >
         <span class="menu-icon">
-          <StellarIcon :name="item.icon || 'file'" :size="20" :stroke-width="2" />
+          <StellarIcon :name="item.icon" :size="20" :stroke-width="2" />
         </span>
-        <span v-if="!appStore.sidebarCollapsed" class="menu-text">{{ t(`nav.${item.name}`) }}</span>
+        <span v-if="!appStore.sidebarCollapsed" class="menu-text">{{ item.label }}</span>
         <span v-if="item.badge && !appStore.sidebarCollapsed" class="menu-badge">{{ item.badge }}</span>
       </router-link>
+      <!-- 外部菜单项 -->
+      <a
+        v-else-if="item.href"
+        :href="item.href"
+        class="menu-item"
+        :target="item.newTab ? '_blank' : undefined"
+        :rel="item.newTab ? 'noopener noreferrer' : undefined"
+        :title="appStore.sidebarCollapsed ? item.label : undefined"
+        :aria-label="item.label"
+        @click="appStore.closeMobileSidebar()"
+      >
+        <span class="menu-icon">
+          <StellarIcon :name="item.icon" :size="20" :stroke-width="2" />
+        </span>
+        <span v-if="!appStore.sidebarCollapsed" class="menu-text">{{ item.label }}</span>
+        <span v-if="item.badge && !appStore.sidebarCollapsed" class="menu-badge">{{ item.badge }}</span>
+      </a>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import StellarIcon from '@/components/StellarIcon.vue'
-
-interface MenuItem {
-  name?: string
-  path?: string
-  icon?: string
-  group?: string
-  badge?: string
-}
+import { normalizeSidebarNavigation, type SidebarNavigationItem } from '@/utils/sidebarNavigation'
 
 const route = useRoute()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const appStore = useAppStore()
 
 const isActive = (path: string) => {
-  return route.path === `/${path}` || route.path.startsWith(`/${path}/`)
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 
-const menuItems: MenuItem[] = [
-  { name: 'dashboard', path: 'dashboard', icon: 'dashboard' },
-  { group: 'products' },
-  { name: 'servers', path: 'servers', icon: 'server' },
-  { name: 'plans', path: 'plans', icon: 'shop' },
-  { group: 'account' },
-  { name: 'orders', path: 'orders', icon: 'receipt' },
-  { name: 'tickets', path: 'tickets', icon: 'ticket' },
-  { name: 'invite', path: 'invite', icon: 'users' },
-  { name: 'traffic', path: 'traffic', icon: 'chart' },
-  { group: 'support' },
-  { name: 'knowledge', path: 'knowledge', icon: 'book' },
-  { name: 'profile', path: 'profile', icon: 'user' },
-]
+const defaultMenuItems = computed<SidebarNavigationItem[]>(() => [
+  { type: 'link', label: t('nav.dashboard'), to: '/dashboard', icon: 'dashboard', newTab: false },
+  { type: 'group', label: t('nav.products'), icon: '', newTab: false },
+  { type: 'link', label: t('nav.servers'), to: '/servers', icon: 'server', newTab: false },
+  { type: 'link', label: t('nav.plans'), to: '/plans', icon: 'shop', newTab: false },
+  { type: 'group', label: t('nav.account'), icon: '', newTab: false },
+  { type: 'link', label: t('nav.orders'), to: '/orders', icon: 'receipt', newTab: false },
+  { type: 'link', label: t('nav.tickets'), to: '/tickets', icon: 'ticket', newTab: false },
+  { type: 'link', label: t('nav.invite'), to: '/invite', icon: 'users', newTab: false },
+  { type: 'link', label: t('nav.traffic'), to: '/traffic', icon: 'chart', newTab: false },
+  { type: 'group', label: t('nav.support'), icon: '', newTab: false },
+  { type: 'link', label: t('nav.knowledge'), to: '/knowledge', icon: 'book', newTab: false },
+  { type: 'link', label: t('nav.profile'), to: '/profile', icon: 'user', newTab: false },
+])
+
+const menuItems = computed(() => {
+  const configuredItems = window.settings?.sidebar_navigation?.items
+  return Array.isArray(configuredItems)
+    ? normalizeSidebarNavigation(configuredItems, String(locale.value))
+    : defaultMenuItems.value
+})
 </script>
 
 <style scoped>

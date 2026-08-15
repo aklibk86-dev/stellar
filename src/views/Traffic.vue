@@ -194,8 +194,14 @@ import { useAppStore } from '@/stores/app'
 import { userApi } from '@/api'
 import type { TrafficLog, Stat } from '@/api/types'
 import { formatTraffic, formatDate } from '@/utils/format'
+import {
+  buildTrafficHeatmap,
+  createTrafficHeatmapOption,
+  getCalendarMonthRange,
+  pageIsOlderThanRange,
+} from '@/utils/trafficHeatmap'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const message = useMessage()
 const appStore = useAppStore()
 
@@ -217,6 +223,8 @@ const chartDownloadData = ref<number[]>([])
 // 热力图数据(复用 fetchChartData 拉取的全部日志)
 const heatmapLoading = ref(false)
 const heatmapRawLogs = ref<TrafficLog[]>([])
+const heatmapRange = getCalendarMonthRange(6)
+const trafficHistoryRange = getCalendarMonthRange(12)
 
 // 通过 ref 传入图表文字颜色(跟随主题)
 const chartTextColor = ref('#9ca3af')
@@ -302,116 +310,21 @@ const chartOption = computed(() => {
 })
 
 // ===== 流量使用热力图 =====
-// 时间戳转 YYYY-MM-DD(本地时区)
-const toDateKey = (ts: number): string => {
-  const d = new Date(ts * 1000)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+const heatmapSummary = computed(() => buildTrafficHeatmap(heatmapRawLogs.value, heatmapRange))
+const heatmapData = computed(() => heatmapSummary.value.data)
+const heatmapTotal = computed(() => heatmapSummary.value.total)
+const heatmapAvg = computed(() => heatmapSummary.value.average)
+const heatmapMax = computed(() => heatmapSummary.value.max)
+const heatmapActiveDays = computed(() => heatmapSummary.value.activeDays)
+const heatmapTotalDays = computed(() => heatmapSummary.value.totalDays)
 
-// 按天聚合流量(每天 u + d 求和,单位字节)
-const heatmapData = computed<[string, number][]>(() => {
-  const map = new Map<string, number>()
-  for (const log of heatmapRawLogs.value) {
-    const key = toDateKey(log.record_at)
-    const bytes = (log.u || 0) + (log.d || 0)
-    map.set(key, (map.get(key) || 0) + bytes)
-  }
-  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-})
-
-const heatmapTotal = computed(() => heatmapData.value.reduce((s, [, v]) => s + v, 0))
-const heatmapMax = computed(() => heatmapData.value.reduce((m, [, v]) => Math.max(m, v), 0))
-const heatmapAvg = computed(() => {
-  const n = heatmapData.value.length
-  return n > 0 ? Math.floor(heatmapTotal.value / n) : 0
-})
-const heatmapActiveDays = computed(() => heatmapData.value.length)
-
-// 时间范围: 最近 6 个月(含今天)
-const heatmapRange = computed<[string, string]>(() => {
-  const end = new Date()
-  const start = new Date(end)
-  start.setMonth(start.getMonth() - 5)
-  start.setDate(1)
-  return [toDateKey(Math.floor(start.getTime() / 1000)), toDateKey(Math.floor(end.getTime() / 1000))]
-})
-
-const heatmapTotalDays = computed(() => {
-  const [s, e] = heatmapRange.value
-  const ms = new Date(e).getTime() - new Date(s).getTime()
-  return Math.floor(ms / 86400000) + 1
-})
-
-// visualMap 最大值(向上取整到合理刻度)
-const heatmapVMax = computed(() => {
-  const mx = heatmapMax.value
-  if (mx <= 0) return 1024 * 1024 * 100
-  const mb = mx / (1024 * 1024)
-  if (mb < 1) return 1024 * 1024
-  if (mb < 10) return 10 * 1024 * 1024
-  if (mb < 100) return 100 * 1024 * 1024
-  if (mb < 1024) return 1024 * 1024 * 1024
-  return Math.ceil(mb / 1024) * 1024 * 1024 * 1024
-})
-
-const heatmapOption = computed(() => {
-  const isDark = appStore.isDark
-  return {
-    tooltip: {
-      formatter: (p: any) => {
-        const bytes = p.value[1] as number
-        return `${p.value[0]}<br/><b>${formatTraffic(bytes)}</b>`
-      },
-    },
-    visualMap: {
-      min: 0,
-      max: heatmapVMax.value,
-      show: false,
-      inRange: {
-        color: isDark
-          ? ['rgba(59,130,246,0.08)', 'rgba(59,130,246,0.3)', 'rgba(59,130,246,0.6)', '#3b82f6', '#2563eb']
-          : ['rgba(59,130,246,0.08)', 'rgba(59,130,246,0.25)', 'rgba(59,130,246,0.5)', 'rgba(59,130,246,0.8)', '#2563eb'],
-      },
-    },
-    calendar: {
-      top: 30,
-      left: 40,
-      right: 20,
-      bottom: 30,
-      range: heatmapRange.value,
-      cellSize: ['auto', 13],
-      itemStyle: {
-        borderWidth: 2,
-        borderColor: isDark ? 'rgba(26,29,36,0.8)' : '#fff',
-        color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.025)',
-      },
-      splitLine: { show: false },
-      yearLabel: { show: false },
-      monthLabel: {
-        nameMap: 'EN',
-        color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
-        fontSize: 11,
-        margin: 8,
-      },
-      dayLabel: {
-        firstDay: 1,
-        nameMap: 'EN',
-        color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)',
-        fontSize: 10,
-      },
-    },
-    series: [
-      {
-        type: 'heatmap',
-        coordinateSystem: 'calendar',
-        data: heatmapData.value,
-      },
-    ],
-  }
-})
+const heatmapOption = computed(() => createTrafficHeatmapOption({
+  summary: heatmapSummary.value,
+  range: heatmapRange,
+  isDark: appStore.isDark,
+  locale: locale.value,
+  formatValue: formatTraffic,
+}))
 
 // ===== 工具函数 =====
 const GB = 1024 * 1024 * 1024
@@ -524,6 +437,7 @@ const fetchChartData = async () => {
           : []
       if (list.length === 0) break
       allLogs.push(...list)
+      if (pageIsOlderThanRange(list, trafficHistoryRange[0])) break
       const lastPage = resp?.last_page
       if (lastPage && page >= lastPage) break
       if (list.length < 100) break

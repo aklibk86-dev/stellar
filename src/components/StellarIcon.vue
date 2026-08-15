@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import {
   Activity,
   ArrowRight,
+  ArrowUpRight,
   ArrowUp,
   Book2,
   ChartBar,
@@ -40,6 +41,7 @@ import {
   Users,
   Wifi,
   World,
+  X,
 } from '@vicons/tabler'
 
 const props = withDefaults(defineProps<{
@@ -54,6 +56,7 @@ const props = withDefaults(defineProps<{
 const icons = {
   activity: Activity,
   arrowRight: ArrowRight,
+  arrowUpRight: ArrowUpRight,
   arrowUp: ArrowUp,
   book: Book2,
   chart: ChartBar,
@@ -87,6 +90,7 @@ const icons = {
   users: Users,
   wifi: Wifi,
   world: World,
+  close: X,
 } as const
 
 const iconAliases: Record<string, keyof typeof icons> = {

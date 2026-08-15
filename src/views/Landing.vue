@@ -1,7 +1,7 @@
 <template>
   <div class="landing-page" :class="{ dark: isDark }">
     <!-- 导航栏 -->
-    <nav class="landing-nav">
+    <nav ref="navigationRoot" class="landing-nav">
       <div class="nav-container">
         <div class="nav-brand" @click="goHome">
           <div class="brand-icon">
@@ -13,10 +13,18 @@
           </div>
           <span class="brand-name">{{ appStore.title || 'Stellar' }}</span>
         </div>
-        <div class="nav-menu">
-          <a href="#features" class="nav-link">{{ t('landing.features') }}</a>
-          <a href="#pricing" class="nav-link">{{ t('landing.pricing') }}</a>
-          <a href="#faq" class="nav-link">FAQ</a>
+        <div v-if="navigationItems.length" class="nav-menu">
+          <a
+            v-for="item in navigationItems"
+            :key="`${item.label}-${item.url}`"
+            :href="navigationHref(item.url)"
+            class="nav-link"
+            :target="item.newTab ? '_blank' : undefined"
+            :rel="item.newTab ? 'noopener noreferrer' : undefined"
+            @click="handleNavigationClick($event, item)"
+          >
+            {{ item.label }}
+          </a>
         </div>
         <div class="nav-actions">
           <button class="theme-toggle-btn" :title="isDark ? '切换到浅色模式' : '切换到暗色模式'" @click="appStore.toggleDark()">
@@ -39,14 +47,62 @@
             <span class="lang-text">{{ currentLang === 'zh-CN' ? '中' : 'EN' }}</span>
           </button>
           <template v-if="isLoggedIn">
-            <button class="nav-btn primary" @click="goDashboard">
+            <button class="nav-btn primary nav-desktop-auth" @click="goDashboard">
               {{ t('landing.console') }}
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
             </button>
           </template>
           <template v-else>
-            <button class="nav-btn ghost" @click="$router.push('/login')">{{ t('landing.login') }}</button>
-            <button class="nav-btn primary" @click="$router.push('/register')">{{ t('landing.register') }}</button>
+            <button class="nav-btn ghost nav-desktop-auth" @click="$router.push('/login')">{{ t('landing.login') }}</button>
+            <button class="nav-btn primary nav-desktop-auth" @click="$router.push('/register')">{{ t('landing.register') }}</button>
+          </template>
+          <button
+            class="nav-mobile-toggle"
+            type="button"
+            :title="mobileMenuOpen ? t('common.closeNavigation') : t('common.openNavigation')"
+            :aria-label="mobileMenuOpen ? t('common.closeNavigation') : t('common.openNavigation')"
+            :aria-expanded="mobileMenuOpen"
+            aria-controls="landing-mobile-navigation"
+            @click="mobileMenuOpen = !mobileMenuOpen"
+          >
+            <StellarIcon :name="mobileMenuOpen ? 'close' : 'menu'" :size="20" />
+          </button>
+        </div>
+        <div
+          v-if="mobileMenuOpen"
+          id="landing-mobile-navigation"
+          class="nav-mobile-menu"
+        >
+          <a
+            v-for="item in navigationItems"
+            :key="`mobile-${item.label}-${item.url}`"
+            :href="navigationHref(item.url)"
+            class="nav-mobile-link"
+            :target="item.newTab ? '_blank' : undefined"
+            :rel="item.newTab ? 'noopener noreferrer' : undefined"
+            @click="handleNavigationClick($event, item)"
+          >
+            {{ item.label }}
+            <StellarIcon v-if="item.newTab" name="arrowUpRight" :size="16" />
+          </a>
+          <div v-if="navigationItems.length" class="nav-mobile-divider"></div>
+          <router-link
+            v-if="isLoggedIn"
+            to="/dashboard"
+            class="nav-mobile-link nav-mobile-command"
+            @click="mobileMenuOpen = false"
+          >
+            {{ t('landing.console') }}
+            <StellarIcon name="arrowRight" :size="16" />
+          </router-link>
+          <template v-else>
+            <router-link to="/login" class="nav-mobile-link nav-mobile-command" @click="mobileMenuOpen = false">
+              {{ t('landing.login') }}
+            </router-link>
+            <router-link to="/register" class="nav-mobile-link nav-mobile-command primary" @click="mobileMenuOpen = false">
+              {{ t('landing.register') }}
+              <StellarIcon name="arrowRight" :size="16" />
+            </router-link>
           </template>
         </div>
       </div>
@@ -104,26 +160,26 @@
             <div class="node-card card-3">
               <div class="node-card-header">
                 <span class="node-flag">🇭🇰</span>
-                <span class="node-name">HK · Stream</span>
+                <span class="node-name">Region A · Standard</span>
                 <span class="node-status online"></span>
               </div>
               <div class="node-card-body">
                 <div class="node-metric"><span>延迟</span><span>8ms</span></div>
-                <div class="node-metric"><span>解锁</span><span>Netflix</span></div>
-                <div class="node-metric"><span>协议</span><span>Reality</span></div>
+                <div class="node-metric"><span>应用</span><span>在线影音</span></div>
+                <div class="node-metric"><span>类型</span><span>标准线路</span></div>
                 <div class="node-metric"><span>倍率</span><span>1.0x</span></div>
               </div>
             </div>
             <div class="node-card card-2">
               <div class="node-card-header">
                 <span class="node-flag">🇯🇵</span>
-                <span class="node-name">JP · Low Latency</span>
+                <span class="node-name">Region B · Low Latency</span>
                 <span class="node-status online"></span>
               </div>
               <div class="node-card-body">
                 <div class="node-metric"><span>延迟</span><span>18ms</span></div>
-                <div class="node-metric"><span>解锁</span><span>YouTube</span></div>
-                <div class="node-metric"><span>协议</span><span>Hysteria2</span></div>
+                <div class="node-metric"><span>应用</span><span>高清视频</span></div>
+                <div class="node-metric"><span>类型</span><span>低延迟线路</span></div>
                 <div class="node-metric"><span>倍率</span><span>1.0x</span></div>
               </div>
               <div class="node-card-footer">
@@ -134,13 +190,13 @@
             <div class="node-card card-1">
               <div class="node-card-header">
                 <span class="node-flag">🇺🇸</span>
-                <span class="node-name">US · Premium</span>
+                <span class="node-name">Region C · Premium</span>
                 <span class="node-status online"></span>
               </div>
               <div class="node-card-body">
                 <div class="node-metric"><span>延迟</span><span>42ms</span></div>
-                <div class="node-metric"><span>解锁</span><span>Disney+</span></div>
-                <div class="node-metric"><span>协议</span><span>Trojan</span></div>
+                <div class="node-metric"><span>应用</span><span>多媒体</span></div>
+                <div class="node-metric"><span>类型</span><span>优选线路</span></div>
                 <div class="node-metric"><span>倍率</span><span>1.5x</span></div>
               </div>
               <div class="node-card-footer">
@@ -160,7 +216,7 @@
             </div>
             <div class="floating-tag tag-bottom">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-流媒体解锁
+影音体验优化
             </div>
           </div>
         </div>
@@ -314,13 +370,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { guestApi } from '@/api'
 import type { Plan } from '@/api/types'
+import StellarIcon from '@/components/StellarIcon.vue'
+import {
+  isInternalNavigationTarget,
+  normalizeLandingNavigation,
+  type LandingNavigationItem,
+} from '@/utils/landingNavigation'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -334,6 +396,52 @@ const currentLang = computed(() => locale.value)
 const plans = ref<Plan[]>([])
 const openFaq = ref<number | null>(0)
 const telegramGroupUrl = ref('')
+const navigationRoot = ref<HTMLElement | null>(null)
+const mobileMenuOpen = ref(false)
+
+const defaultNavigationItems = computed<LandingNavigationItem[]>(() => [
+  { label: t('landing.features'), url: '#features', newTab: false },
+  { label: t('landing.pricing'), url: '#pricing', newTab: false },
+  { label: 'FAQ', url: '#faq', newTab: false },
+])
+
+const navigationItems = computed(() => {
+  const configuredItems = window.settings?.landing_navigation?.items
+  return Array.isArray(configuredItems)
+    ? normalizeLandingNavigation(configuredItems, String(locale.value))
+    : defaultNavigationItems.value
+})
+
+const navigationHref = (target: string) => {
+  return isInternalNavigationTarget(target) ? router.resolve(target).href : target
+}
+
+const handleNavigationClick = (event: MouseEvent, item: LandingNavigationItem) => {
+  mobileMenuOpen.value = false
+  if (!item.newTab && item.url.startsWith('#')) {
+    event.preventDefault()
+    const target = document.getElementById(item.url.slice(1))
+    if (target) {
+      window.history.pushState(window.history.state, '', item.url)
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    return
+  }
+  if (!item.newTab && isInternalNavigationTarget(item.url)) {
+    event.preventDefault()
+    void router.push(item.url)
+  }
+}
+
+const closeMobileMenuOnOutsideClick = (event: MouseEvent) => {
+  if (navigationRoot.value && !navigationRoot.value.contains(event.target as Node)) {
+    mobileMenuOpen.value = false
+  }
+}
+
+const closeMobileMenuOnEscape = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') mobileMenuOpen.value = false
+}
 
 // 保留作者署名是开源社区的基本礼仪，请勿移除或篡改版权信息。
 const _a = [97, 107, 108, 105, 98, 107, 56, 54, 45, 100, 101, 118]
@@ -350,24 +458,24 @@ const toggleLang = () => {
 const fallbackPlans = [
   {
     id: 0,
-    name: '轻量加速',
+    name: '轻量服务',
     displayPrice: '9.9',
     displayPeriod: '/月',
-    displayFeatures: ['适合轻度网页访问', '常用地区节点', '流媒体基础解锁', '全平台订阅导入', '在线客服支持'],
+    displayFeatures: ['适合轻度网页访问', '常用地区线路', '基础影音优化', '全平台配置导入', '在线客服支持'],
   },
   {
     id: 0,
-    name: '标准加速',
+    name: '标准服务',
     displayPrice: '19.9',
     displayPeriod: '/月',
-    displayFeatures: ['适合日常稳定使用', '高速低延迟节点', 'Netflix / YouTube 优化', '多设备同时使用', '热门线路优先接入'],
+    displayFeatures: ['适合日常稳定使用', '高速低延迟线路', '在线视频优化', '多设备同时使用', '热门线路优先接入'],
   },
   {
     id: 0,
-    name: '高级加速',
+    name: '高级服务',
     displayPrice: '39.9',
     displayPeriod: '/月',
-    displayFeatures: ['适合高频跨境访问', '高级专线节点', '4K/8K 流媒体体验', '游戏与远程办公优化', '更高流量与速率保障'],
+    displayFeatures: ['适合高频网络使用', '高级专用线路', '4K/8K 在线影音体验', '游戏与远程办公优化', '更高流量与速率保障'],
   },
 ]
 
@@ -556,12 +664,19 @@ const fetchData = async () => {
 }
 
 onMounted(async () => {
+  document.addEventListener('click', closeMobileMenuOnOutsideClick)
+  document.addEventListener('keydown', closeMobileMenuOnEscape)
   // 先完成后端配置获取（这会触发后端类型探测），再验证登录状态
   await userStore.fetchGuestConfig()
   if (userStore.authToken) {
     userStore.checkLogin()
   }
   fetchData()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMobileMenuOnOutsideClick)
+  document.removeEventListener('keydown', closeMobileMenuOnEscape)
 })
 </script>
 

@@ -213,6 +213,11 @@ onMounted(async () => {
 }
 .search-input {
   width: 100%;
+  --n-color: var(--stellar-bg-card) !important;
+  --n-color-focus: var(--stellar-bg-card) !important;
+  --n-border: 1px solid var(--stellar-border) !important;
+  --n-border-hover: 1px solid var(--stellar-primary) !important;
+  --n-border-focus: 1px solid var(--stellar-primary) !important;
 }
 
 .knowledge-body {

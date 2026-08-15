@@ -378,12 +378,9 @@
             <span class="card-subtitle">{{ t('dashboard.clientDownloadDesc') }}</span>
           </div>
           <div class="client-grid">
-            <a
+            <div
               v-for="client in availableClients"
               :key="client.key"
-              :href="client.url"
-              target="_blank"
-              rel="noopener noreferrer"
               class="client-item"
             >
               <div class="client-icon">
@@ -391,16 +388,28 @@
               </div>
               <div class="client-info">
                 <span class="client-name">{{ client.label }}</span>
-                <span class="client-download-hint">
+              </div>
+              <n-button
+                tag="a"
+                :href="client.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                size="small"
+                type="primary"
+                secondary
+                class="client-download-button"
+                :aria-label="`${client.label} ${t('dashboard.download')}`"
+              >
+                <template #icon>
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  {{ t('dashboard.download') }}
-                </span>
-              </div>
-            </a>
+                </template>
+                {{ t('dashboard.download') }}
+              </n-button>
+            </div>
           </div>
         </div>
 
@@ -424,10 +433,16 @@ import { userApi, normalizeListData } from '@/api'
 import http from '@/api/http'
 import type { Subscribe, User, TrafficLog, Order, Ticket, Plan } from '@/api/types'
 import { formatTraffic, formatMoney, formatDate } from '@/utils/format'
+import {
+  buildTrafficHeatmap,
+  createTrafficHeatmapOption,
+  getCalendarMonthRange,
+  pageIsOlderThanRange,
+} from '@/utils/trafficHeatmap'
 import { can } from '@/utils/backend'
 import SubscribeImportModal from '@/components/SubscribeImportModal.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
@@ -617,118 +632,22 @@ const trafficChartOption = computed(() => {
 const heatmapLoading = ref(false)
 const heatmapRawLogs = ref<TrafficLog[]>([])
 
-// 时间戳转 YYYY-MM-DD(本地时区)
-const toDateKey = (ts: number): string => {
-  const d = new Date(ts * 1000)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+const heatmapRange = getCalendarMonthRange(6)
+const heatmapSummary = computed(() => buildTrafficHeatmap(heatmapRawLogs.value, heatmapRange))
+const heatmapData = computed(() => heatmapSummary.value.data)
+const heatmapTotal = computed(() => heatmapSummary.value.total)
+const heatmapAvg = computed(() => heatmapSummary.value.average)
+const heatmapMax = computed(() => heatmapSummary.value.max)
+const heatmapActiveDays = computed(() => heatmapSummary.value.activeDays)
+const heatmapTotalDays = computed(() => heatmapSummary.value.totalDays)
 
-// 按天聚合流量(每天 u + d 求和,单位字节)
-const heatmapData = computed<[string, number][]>(() => {
-  const map = new Map<string, number>()
-  for (const log of heatmapRawLogs.value) {
-    const key = toDateKey(log.record_at)
-    const bytes = (log.u || 0) + (log.d || 0)
-    map.set(key, (map.get(key) || 0) + bytes)
-  }
-  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-})
-
-const heatmapTotal = computed(() => heatmapData.value.reduce((s, [, v]) => s + v, 0))
-const heatmapMax = computed(() => heatmapData.value.reduce((m, [, v]) => Math.max(m, v), 0))
-const heatmapAvg = computed(() => {
-  const n = heatmapData.value.length
-  return n > 0 ? Math.floor(heatmapTotal.value / n) : 0
-})
-const heatmapActiveDays = computed(() => heatmapData.value.length)
-
-// 时间范围: 最近 6 个月(含今天),覆盖大约 26 周的网格
-const heatmapRange = computed<[string, string]>(() => {
-  const end = new Date()
-  const start = new Date(end)
-  start.setMonth(start.getMonth() - 5)
-  start.setDate(1)
-  return [toDateKey(Math.floor(start.getTime() / 1000)), toDateKey(Math.floor(end.getTime() / 1000))]
-})
-
-// 总天数(范围内)
-const heatmapTotalDays = computed(() => {
-  const [s, e] = heatmapRange.value
-  const ms = new Date(e).getTime() - new Date(s).getTime()
-  return Math.floor(ms / 86400000) + 1
-})
-
-// visualMap 最大值(向上取整到合理刻度)
-const heatmapVMax = computed(() => {
-  const mx = heatmapMax.value
-  if (mx <= 0) return 1024 * 1024 * 100 // 100MB
-  // 向上取整到 MB 边界,避免 1 字节和 1GB 同色
-  const mb = mx / (1024 * 1024)
-  if (mb < 1) return 1024 * 1024
-  if (mb < 10) return 10 * 1024 * 1024
-  if (mb < 100) return 100 * 1024 * 1024
-  if (mb < 1024) return 1024 * 1024 * 1024
-  return Math.ceil(mb / 1024) * 1024 * 1024 * 1024
-})
-
-const heatmapOption = computed(() => {
-  const isDark = appStore.isDark
-  return {
-    tooltip: {
-      formatter: (p: any) => {
-        const bytes = p.value[1] as number
-        return `${p.value[0]}<br/><b>${formatTraffic(bytes)}</b>`
-      },
-    },
-    visualMap: {
-      min: 0,
-      max: heatmapVMax.value,
-      show: false,
-      inRange: {
-        color: isDark
-          ? ['rgba(59,130,246,0.08)', 'rgba(59,130,246,0.3)', 'rgba(59,130,246,0.6)', '#3b82f6', '#2563eb']
-          : ['rgba(59,130,246,0.08)', 'rgba(59,130,246,0.25)', 'rgba(59,130,246,0.5)', 'rgba(59,130,246,0.8)', '#2563eb'],
-      },
-    },
-    calendar: {
-      top: 30,
-      left: 40,
-      right: 20,
-      bottom: 30,
-      range: heatmapRange.value,
-      cellSize: ['auto', 13],
-      itemStyle: {
-        borderWidth: 2,
-        borderColor: isDark ? 'rgba(26,29,36,0.8)' : '#fff',
-        color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.025)',
-      },
-      splitLine: { show: false },
-      yearLabel: { show: false },
-      monthLabel: {
-        nameMap: 'EN',
-        color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
-        fontSize: 11,
-        margin: 8,
-      },
-      dayLabel: {
-        firstDay: 1,
-        nameMap: 'EN',
-        color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)',
-        fontSize: 10,
-      },
-    },
-    series: [
-      {
-        type: 'heatmap',
-        coordinateSystem: 'calendar',
-        data: heatmapData.value,
-      },
-    ],
-  }
-})
+const heatmapOption = computed(() => createTrafficHeatmapOption({
+  summary: heatmapSummary.value,
+  range: heatmapRange,
+  isDark: appStore.isDark,
+  locale: locale.value,
+  formatValue: formatTraffic,
+}))
 
 const fetchTrafficHeatmap = async () => {
   heatmapLoading.value = true
@@ -743,6 +662,7 @@ const fetchTrafficHeatmap = async () => {
       const list: TrafficLog[] = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : [])
       if (list.length === 0) break
       allLogs.push(...list)
+      if (pageIsOlderThanRange(list, heatmapRange[0])) break
       // 是否还有下一页
       const lastPage = resp?.last_page
       if (lastPage && page >= lastPage) break
@@ -1045,7 +965,7 @@ onBeforeUnmount(() => {
 
 /* 快速入口卡片(单列竖排列式布局) */
 .quick-access-card { }
-.quick-access-list { display: flex; flex-direction: column; gap: 2px; padding: 6px; flex: 1; justify-content: center; overflow-y: auto; }
+.quick-access-list { display: flex; flex-direction: column; gap: 0; padding: 6px; flex: 1; justify-content: space-evenly; overflow-y: auto; }
 .quick-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
 .quick-item:hover { background: var(--stellar-bg-hover); }
 .quick-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -1106,13 +1026,13 @@ onBeforeUnmount(() => {
 .client-download-card .card-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .client-download-card .card-subtitle { font-size: 12px; color: var(--stellar-text-muted); font-weight: 400; }
 .client-grid { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; flex: 1; justify-content: center; }
-.client-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; background: var(--stellar-bg-hover); border: 1px solid transparent; text-decoration: none; transition: all 0.2s; cursor: pointer; }
+.client-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; background: var(--stellar-bg-hover); border: 1px solid transparent; transition: all 0.2s; }
 .client-item:hover { border-color: var(--stellar-primary); background: var(--stellar-bg-card); transform: translateY(-1px); }
 .client-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--stellar-bg-card); border: 1px solid var(--stellar-border-light); }
 .client-logo-img { width: 20px; height: 20px; object-fit: contain; }
-.client-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.client-info { min-width: 0; flex: 1; }
 .client-name { font-size: 12px; font-weight: 600; color: var(--stellar-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.client-download-hint { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--stellar-text-muted); }
+.client-download-button { flex-shrink: 0; }
 
 /* 流量使用热力图 */
 .traffic-heatmap-card .card-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }

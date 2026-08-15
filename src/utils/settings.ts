@@ -12,6 +12,12 @@ const defaultSettings = {
   footer_code: '',
   landing_theme_mode: 'dark' as const,
   landing_page_enabled: true,
+  landing_navigation: {
+    items: null,
+  },
+  sidebar_navigation: {
+    items: null,
+  },
   telegram_group: '',
   api_error_contact: '',
   client_downloads: {
@@ -175,6 +181,14 @@ export function initRuntimeSettings() {
         runtimeSocialSharing.platforms,
         defaultSettings.social_sharing.platforms,
       ),
+    },
+    landing_navigation: {
+      ...defaultSettings.landing_navigation,
+      ...((s.landing_navigation || {}) as Record<string, unknown>),
+    },
+    sidebar_navigation: {
+      ...defaultSettings.sidebar_navigation,
+      ...((s.sidebar_navigation || {}) as Record<string, unknown>),
     },
     customer_service: {
       ...defaultSettings.customer_service,

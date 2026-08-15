@@ -23,7 +23,7 @@ Stellar Theme 是一套面向 XBoard 的现代化用户端主题，基于 Vue 3�
 | 用户认证 | 用户名/邮箱登录、注册、邮箱验证码登录、忘记密码、登录状态持久化 |
 | 用户仪表盘 | 账户概况、有效期、剩余流量、订阅复制/导入、待支付订单/工单提醒 |
 | 订阅导入 | 多平台客户端资源，支持配置下载链接 |
-| 节点与服务器 | 查看后端返回的可用节点信息 |
+| 线路与服务器 | 查看后端返回的可用线路信息 |
 | 套餐购买 | 从后端读取套餐、展示价格周期、选择支付方式、提交订单 |
 | 订单管理 | 查看历史订单和状态，仪表盘提醒待支付订单 |
 | 工单系统 | 提交工单、查看状态，控制台提醒待处理工单 |
@@ -136,6 +136,21 @@ window.settings = {
   background_url: '',
   logo: '',
   landing_theme_mode: 'dark',
+  landing_navigation: {
+    items: [
+      { label: '功能', label_en: 'Features', url: '#features' },
+      { label: '套餐', label_en: 'Pricing', url: '#pricing' },
+      { label: '状态页', label_en: 'Status', url: 'https://status.example.com', new_tab: true },
+    ],
+  },
+  sidebar_navigation: {
+    items: [
+      { label: '仪表盘', label_en: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
+      { type: 'group', label: '产品服务', label_en: 'Products' },
+      { label: '购买套餐', label_en: 'Plans', path: '/plans', icon: 'shop' },
+      { label: '服务状态', label_en: 'Status', url: 'https://status.example.com', icon: 'world', new_tab: true, badge: 'NEW' },
+    ],
+  },
   telegram_group: '',
   api_error_contact: '',
   background: {
@@ -198,6 +213,8 @@ window.settings = {
 | `background` | 全站图片/视频背景；支持 `desktop_url` 与 `mobile_url` 分别设置电脑和手机壁纸 |
 | `logo` | 自定义 Logo 地址 |
 | `landing_theme_mode` | 落地页默认模式：`dark` / `light` |
+| `landing_navigation` | 落地页顶部导航；支持双语名称、锚点、站内路径、外链和新窗口打开，`items: []` 可隐藏链接 |
+| `sidebar_navigation` | 后台侧边栏；支持分组、双语名称、排序、显隐、图标、徽标、站内路径及安全外链 |
 | `telegram_group` | Telegram 群组链接 |
 | `glassmorphism` | 毛玻璃卡片特效配置 |
 | `client_imports` | 一键导入开关及客户端 ID 白名单；`clients: []` 表示全部 |
@@ -317,7 +334,7 @@ api: {
 }
 ```
 
-### 方式三：前端代理模式
+### 方式三：前端转发模式
 
 ```js
 api: {
@@ -330,7 +347,7 @@ api: {
 }
 ```
 
-> 注意：代理模式需服务器实现对应转发逻辑，并配置白名单防范 SSRF 风险。
+> 注意：转发模式需服务器实现对应转发逻辑，并配置白名单防范 SSRF 风险。
 
 ## 多后端适配
 
@@ -434,7 +451,7 @@ stellar/
 **API 请求失败？**
 - 检查 `env.js` 中 API 地址是否正确
 - 确认后端可访问且配置了正确的 CORS
-- 检查 Nginx 代理配置与 `append_path` 是否一致
+- 检查 Nginx 转发配置与 `append_path` 是否一致
 
 **刷新后 404？**
 - 配置 SPA History 路由回退：`try_files $uri $uri/ /index.html`
@@ -453,7 +470,7 @@ stellar/
 
 - 生产环境使用 HTTPS
 - 不在前端配置文件中存放敏感信息
-- 后端 CORS 限制来源，优先使用同域代理
+- 后端 CORS 限制来源，优先使用同域转发
 - 定期执行 `npm audit` 检查依赖安全
 
 ## 开发说明

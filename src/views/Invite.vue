@@ -835,7 +835,8 @@ onMounted(async () => {
 }
 .highlight-card {
   grid-column: span 2;
-  background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02));
+  background-color: var(--stellar-bg-card);
+  background-image: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02));
   border-color: rgba(245,158,11,0.3);
 }
 .stat-icon {

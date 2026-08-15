@@ -75,7 +75,7 @@ export interface BackendCapabilities {
   userDeviceLimit: boolean
   /** guest config 含 is_captcha / captcha_type / turnstile / recaptcha_v3 */
   advancedCaptcha: boolean
-  /** 节点接口使用 API Resource 转换字段（Xboard 风格） */
+  /** 线路接口使用 API Resource 转换字段（Xboard 风格） */
   nodeResource: boolean
 }
 

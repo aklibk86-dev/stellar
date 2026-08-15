@@ -30,6 +30,14 @@ interface Window {
     logo: string
     landing_theme_mode?: 'dark' | 'light'
     landing_page_enabled?: boolean
+    landing_navigation?: {
+      /** 自定义落地页顶部导航；未配置时使用内置导航，空数组表示隐藏导航链接 */
+      items?: import('@/utils/landingNavigation').LandingNavigationItemConfig[] | null
+    }
+    sidebar_navigation?: {
+      /** 自定义后台侧边栏；未配置时使用内置菜单，空数组表示隐藏全部菜单项 */
+      items?: import('@/utils/sidebarNavigation').SidebarNavigationItemConfig[] | null
+    }
     telegram_group?: string
     api_error_contact?: string
     header_code?: string
