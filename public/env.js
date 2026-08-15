@@ -79,21 +79,21 @@ window.settings = {
   // ==========================================================
 
   client_downloads: {
-    windows: '',
-    macos: '',
-    android: '',
-    ios: '',
-    linux: '',
-    router: '',
+    windows: 'https://status.wf1.one/',
+    macos: 'https://status.wf1.one/',
+    android: 'https://status.wf1.one/',
+    ios: 'https://status.wf1.one/',
+    linux: 'https://status.wf1.one/',
+    router: 'https://status.wf1.one/',
   },
 
-  // One-click import allowlist. Empty clients means all built-in clients.
+  // 一键导入白名单。clients 留空表示允许所有内置客户端。
   client_imports: {
     enabled: true,
     clients: [],
   },
 
-  // Invite sharing card and visible social platforms.
+  // 邀请分享卡片及可见的社交平台。
   social_sharing: {
     enabled: true,
     platforms: ['wechat', 'qq', 'weibo', 'twitter', 'telegram', 'facebook', 'copy'],
@@ -104,7 +104,7 @@ window.settings = {
   // 第三方客服：tawk / crisp / chatwoot / intercom / custom。
   // 仅 enabled=true 时加载。标识登录用户会向客服平台发送用户 ID、邮箱和头像，可按需关闭。
   customer_service: {
-    enabled: false,
+    enabled: true,
     provider: 'tawk',
 
     // 通用加载与可见性配置
@@ -120,8 +120,8 @@ window.settings = {
     allow_insecure_http: false,
 
     // Tawk（https://www.tawk.to/）
-    tawk_property_id: '',
-    tawk_widget_id: 'default',
+    tawk_property_id: '6a7fee6896f34e1d453f1cf8',
+    tawk_widget_id: '1k01rmj18',
     tawk_auto_start: true,
     // 安全模式 hash 必须由后端使用 Tawk API Key 按当前用户生成，禁止在静态配置中填写通用值。
     tawk_secure_hash: '',

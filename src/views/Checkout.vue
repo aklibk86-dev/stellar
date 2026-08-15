@@ -460,6 +460,14 @@ const fetchData = async () => {
   if (tradeNo) {
     try {
       await loadCreatedOrder(tradeNo)
+      // 后端订单详情未返回 plan 时，按路由 planId 回退加载套餐
+      if (!plan.value) {
+        const planId = Number(route.params.planId)
+        if (planId) {
+          const plansRes = await userApi.getPlans()
+          plan.value = (plansRes.data || []).find(p => p.id === planId) || null
+        }
+      }
       if (!plan.value) {
         message.error(t('common.failed'))
         loading.value = false

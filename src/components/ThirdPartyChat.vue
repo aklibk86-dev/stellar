@@ -2,6 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { userApi } from '@/api'
+import type { Subscribe } from '@/api/types'
+import { formatTraffic, formatDate } from '@/utils/format'
 import {
   createCustomerService,
   matchesCustomerServiceRoute,
@@ -21,6 +24,53 @@ let loadPromise: Promise<void> | null = null
 let loadTimer: number | null = null
 let idleHandle: number | null = null
 
+// ===== 套餐与 IP 信息（用于第三方客服展示完整订阅状态）=====
+const subscribe = ref<Subscribe | null>(null)
+const currentIp = ref<string>('')
+
+const planName = computed(() => {
+  const sub = subscribe.value
+  if (!sub) return ''
+  return sub.plan?.name || (sub.plan_id ? `Plan #${sub.plan_id}` : '')
+})
+
+const usedTraffic = computed(() => {
+  const sub = subscribe.value
+  return formatTraffic((sub?.u || 0) + (sub?.d || 0))
+})
+
+const totalTraffic = computed(() => {
+  const total = subscribe.value?.transfer_enable || 0
+  return formatTraffic(total)
+})
+
+const expireText = computed(() => {
+  const exp = subscribe.value?.expired_at
+  if (exp === null || exp === undefined) return '永久有效'
+  if (exp === 0) return '-'
+  return formatDate(exp)
+})
+
+const fetchSubscriptionInfo = async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const [subRes, sessionRes] = await Promise.allSettled([
+      userApi.getSubscribe(),
+      userApi.getActiveSession(),
+    ])
+    if (subRes.status === 'fulfilled') {
+      subscribe.value = subRes.value.data
+    }
+    if (sessionRes.status === 'fulfilled') {
+      const sessions = sessionRes.value.data
+      const first = Array.isArray(sessions) ? sessions[0] : null
+      currentIp.value = first?.ip || first?.name || ''
+    }
+  } catch (err) {
+    console.warn('[CustomerService] 获取套餐信息失败:', err)
+  }
+}
+
 const visitor = computed<CustomerServiceVisitor | undefined>(() => {
   if (config.identify_user === false) return undefined
   const user = userStore.user
@@ -28,16 +78,25 @@ const visitor = computed<CustomerServiceVisitor | undefined>(() => {
   if (!user && !runtimeIdentity) return undefined
 
   const email = runtimeIdentity?.email || user?.email || ''
+  const attributes: Record<string, string | number | boolean> = {
+    ...(runtimeIdentity?.attributes || {}),
+    ...(user?.plan_id ? { plan_id: user.plan_id } : {}),
+  }
+  // 注入完整套餐信息，便于客服侧直接看到用户当前订阅状态
+  if (planName.value) attributes.plan_name = planName.value
+  if (subscribe.value) {
+    attributes.used_traffic = usedTraffic.value
+    attributes.total_traffic = totalTraffic.value
+    attributes.expired_at = expireText.value
+  }
+  if (currentIp.value) attributes.current_ip = currentIp.value
   return {
     id: runtimeIdentity?.user_id || user?.uuid || email,
     hash: runtimeIdentity?.hash || config.tawk_secure_hash,
     name: runtimeIdentity?.name || email,
     email,
     avatar: runtimeIdentity?.avatar || user?.avatar_url || '',
-    attributes: {
-      ...(runtimeIdentity?.attributes || {}),
-      ...(user?.plan_id ? { plan_id: user.plan_id } : {}),
-    },
+    attributes,
   }
 })
 
@@ -141,6 +200,11 @@ watch(visitor, (nextVisitor) => {
   if (loaded.value) controller.setVisitor(nextVisitor)
 }, { deep: true })
 
+// 登录态变化时（如未登录先访问后登录）重新拉取套餐/IP 信息
+watch(() => userStore.isLoggedIn, (loggedIn) => {
+  if (loggedIn) void fetchSubscriptionInfo()
+})
+
 watch(() => route.fullPath, (path) => {
   if (routeAllowsWidget.value) scheduleLoad()
   if (!loaded.value) return
@@ -158,6 +222,8 @@ onMounted(() => {
   window.stellarCustomerService = publicApi
   mobileMedia.addEventListener('change', handleMobileChange)
   scheduleLoad()
+  // 拉取套餐/IP 信息，加载后 visitor 重新计算并同步到客服侧
+  void fetchSubscriptionInfo()
 })
 
 onBeforeUnmount(() => {

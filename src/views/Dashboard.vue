@@ -83,23 +83,12 @@
                 secondary
                 type="primary"
                 :aria-label="t('dashboard.renew')"
+                :loading="renewLoading"
                 @click="handleRenew"
               >
                 <template #icon><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></template>
                 <span class="subscription-action-label-full">{{ t('dashboard.renew') }}</span>
                 <span class="subscription-action-label-compact">{{ t('common.renew') }}</span>
-              </n-button>
-              <n-button
-                size="small"
-                quaternary
-                type="warning"
-                :aria-label="t('dashboard.resetSubscribe')"
-                @click="handleResetSubscribe"
-                :loading="resetSubscribeLoading"
-              >
-                <template #icon><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></svg></template>
-                <span class="subscription-action-label-full">{{ t('dashboard.resetSubscribe') }}</span>
-                <span class="subscription-action-label-compact">{{ t('common.reset') }}</span>
               </n-button>
             </div>
           </div>
@@ -451,7 +440,7 @@ const plans = ref<Plan[]>([])
 const showSubscribeModal = ref(false)
 const loading = ref(true)
 const resetLoading = ref(false)
-const resetSubscribeLoading = ref(false)
+const renewLoading = ref(false)
 
 // ===== 最近订单 =====
 const recentOrders = ref<Order[]>([])
@@ -793,8 +782,57 @@ const fetchData = async () => {
   loading.value = false
 }
 
-const handleRenew = () => {
-  router.push('/plans')
+const handleRenew = async () => {
+  const planId = subscribe.value?.plan_id
+  if (!planId) {
+    message.warning(t('dashboard.noSubscribeUrl'))
+    router.push('/plans')
+    return
+  }
+  if (renewLoading.value) return
+  renewLoading.value = true
+  try {
+    // 1. 取消未付款订单，避免 orderSave 报“存在未付款订单”
+    const orderRes = await userApi.getOrderList()
+    const allOrders = normalizeListData<any>(orderRes.data as any)
+    const pendingOrders = allOrders.filter((o: any) => o.status === 0) || []
+    for (const order of pendingOrders) {
+      try { await userApi.orderCancel(order.trade_no) } catch (err) { console.error('[Dashboard] 取消待支付订单失败:', err) }
+    }
+
+    // 2. 续费用与当前订阅相同的周期：取最近一份已完成订单的 period
+    let period = ''
+    const samePlanDone = allOrders.find((o: any) => o.plan_id === planId && o.status === 3 && o.period)
+    if (samePlanDone?.period) {
+      period = samePlanDone.period
+    } else {
+      // 回退：使用套餐支持的最短周期
+      const plan = plans.value.find(p => p.id === planId) || subscribe.value?.plan
+      if (plan) {
+        const fallbackOrder = ['month_price', 'quarter_price', 'half_year_price', 'year_price', 'onetime_price'] as const
+        period = fallbackOrder.find(k => plan[k] !== null && plan[k] !== undefined) || 'month_price'
+      } else {
+        period = 'month_price'
+      }
+    }
+
+    // 3. 创建续费订单
+    const res = await userApi.orderSave(planId, period)
+    const tradeNo = typeof res.data === 'string' ? res.data : (res.data as any)?.trade_no
+    if (!tradeNo) throw new Error('No trade_no')
+
+    // 4. 直接跳转到支付页面，Checkout 页面读取 trade_no 后自动进入支付方式选择阶段
+    window.dispatchEvent(new CustomEvent('refresh-pending-orders'))
+    await router.push({ name: 'checkout', params: { planId: String(planId) }, query: { trade_no: tradeNo } })
+  } catch (err: any) {
+    const errMsg = err?.message || t('common.failed')
+    message.error(errMsg)
+    if (errMsg.includes('未付款') || errMsg.includes('unpaid')) {
+      window.dispatchEvent(new CustomEvent('refresh-pending-orders'))
+    }
+  } finally {
+    renewLoading.value = false
+  }
 }
 
 const handleResetTraffic = () => {
@@ -838,28 +876,6 @@ const handleResetTraffic = () => {
         message.error(t('dashboard.resetTrafficFailed'))
       } finally {
         resetLoading.value = false
-      }
-    },
-  })
-}
-
-const handleResetSubscribe = () => {
-  dialog.warning({
-    title: t('dashboard.resetSubscribe'),
-    content: t('dashboard.resetSubscribeConfirm'),
-    positiveText: t('common.confirm'),
-    negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
-      resetSubscribeLoading.value = true
-      try {
-        await userApi.resetSecurity()
-        const res = await userApi.getSubscribe()
-        subscribe.value = res.data
-        message.success(t('dashboard.resetSubscribeSuccess'))
-      } catch {
-        message.error(t('dashboard.resetSubscribeFailed'))
-      } finally {
-        resetSubscribeLoading.value = false
       }
     },
   })
