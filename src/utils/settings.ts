@@ -12,6 +12,17 @@ const defaultSettings = {
   footer_code: '',
   landing_theme_mode: 'dark' as const,
   landing_page_enabled: true,
+  landing_hero: {
+    badge: '',
+    badge_en: '',
+    title: '',
+    title_en: '',
+    title_suffix: '',
+    title_suffix_en: '',
+    subtitle: '',
+    subtitle_en: '',
+    features: [] as Array<string | { label: string; label_en?: string }>,
+  },
   landing_navigation: {
     items: null,
   },
@@ -47,6 +58,7 @@ const defaultSettings = {
     track_page_views: true,
     show_on_routes: [] as string[],
     hide_on_routes: [] as string[],
+    show_on_auth_routes: true,
     hide_on_mobile: false,
     attributes: {} as Record<string, string | number | boolean>,
     tags: [] as string[],
@@ -185,6 +197,13 @@ export function initRuntimeSettings() {
     landing_navigation: {
       ...defaultSettings.landing_navigation,
       ...((s.landing_navigation || {}) as Record<string, unknown>),
+    },
+    landing_hero: {
+      ...defaultSettings.landing_hero,
+      ...((s.landing_hero || {}) as Record<string, unknown>),
+      features: Array.isArray((s.landing_hero as Record<string, unknown>)?.features)
+        ? (s.landing_hero as Record<string, unknown>).features
+        : defaultSettings.landing_hero.features,
     },
     sidebar_navigation: {
       ...defaultSettings.sidebar_navigation,

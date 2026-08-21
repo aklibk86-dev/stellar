@@ -202,7 +202,7 @@ router.beforeEach(async (to, _from, next) => {
     ) {
       next()
       return
-    } else if (userStore.isLoggedIn) {
+    } else if (userStore.ensureSessionValid()) {
       next({ name: 'dashboard' })
     } else {
       next()
@@ -210,7 +210,7 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  if (!userStore.isLoggedIn) {
+  if (!userStore.ensureSessionValid()) {
     next(loginRedirect(to.fullPath))
     return
   }

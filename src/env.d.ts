@@ -30,6 +30,17 @@ interface Window {
     logo: string
     landing_theme_mode?: 'dark' | 'light'
     landing_page_enabled?: boolean
+    landing_hero?: {
+      badge?: string
+      badge_en?: string
+      title?: string
+      title_en?: string
+      title_suffix?: string
+      title_suffix_en?: string
+      subtitle?: string
+      subtitle_en?: string
+      features?: Array<string | { label: string; label_en?: string }>
+    }
     landing_navigation?: {
       /** 自定义落地页顶部导航；未配置时使用内置导航，空数组表示隐藏导航链接 */
       items?: import('@/utils/landingNavigation').LandingNavigationItemConfig[] | null

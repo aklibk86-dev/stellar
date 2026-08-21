@@ -23,6 +23,7 @@ const loaded = ref(false)
 let loadPromise: Promise<void> | null = null
 let loadTimer: number | null = null
 let idleHandle: number | null = null
+let tawkDomObserver: MutationObserver | null = null
 
 // ===== 套餐与 IP 信息（用于第三方客服展示完整订阅状态）=====
 const subscribe = ref<Subscribe | null>(null)
@@ -103,7 +104,12 @@ const visitor = computed<CustomerServiceVisitor | undefined>(() => {
 const routeAllowsWidget = computed(() => {
   if (config.hide_on_mobile && isMobile.value) return false
   const path = route.path
-  if (matchesCustomerServiceRoute(path, config.hide_on_routes)) return false
+  // The landing page is a public entry point and should always keep chat available.
+  if (path === '/' || path === '/landing') return true
+  const authRoute = ['/login', '/register', '/forget', '/email-login'].includes(path)
+  const showOnAuthRoute = config.show_on_auth_routes !== false
+  if (authRoute && showOnAuthRoute) return true
+  if (matchesCustomerServiceRoute(path, config.hide_on_routes) && !(authRoute && showOnAuthRoute)) return false
   const showRoutes = config.show_on_routes || []
   return showRoutes.length === 0 || matchesCustomerServiceRoute(path, showRoutes)
 })
@@ -124,6 +130,19 @@ const cancelScheduledLoad = () => {
     const target = window as Window & { cancelIdleCallback?: (handle: number) => void }
     target.cancelIdleCallback?.(idleHandle)
     idleHandle = null
+  }
+}
+
+const syncTawkDomVisibility = () => {
+  const launcher = Array.from(document.body.children).find((element) => {
+    if (!(element instanceof HTMLElement) || element.id === 'app') return false
+    return Boolean(element.querySelector('iframe[style*="position: fixed"][width="64px"]'))
+  }) as HTMLElement | undefined
+  if (!launcher) return
+  const visible = routeAllowsWidget.value
+  const expected = visible ? 'block' : 'none'
+  if (getComputedStyle(launcher).display !== expected) {
+    launcher.style.setProperty('display', expected, 'important')
   }
 }
 
@@ -216,18 +235,24 @@ watch(routeAllowsWidget, (visible) => {
   if (visible) scheduleLoad()
   else cancelScheduledLoad()
   if (loaded.value) controller.setVisible(visible)
+  syncTawkDomVisibility()
 })
 
 onMounted(() => {
   window.stellarCustomerService = publicApi
   mobileMedia.addEventListener('change', handleMobileChange)
+  tawkDomObserver = new MutationObserver(() => syncTawkDomVisibility())
+  tawkDomObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] })
   scheduleLoad()
+  syncTawkDomVisibility()
   // 拉取套餐/IP 信息，加载后 visitor 重新计算并同步到客服侧
   void fetchSubscriptionInfo()
 })
 
 onBeforeUnmount(() => {
   cancelScheduledLoad()
+  tawkDomObserver?.disconnect()
+  tawkDomObserver = null
   mobileMedia.removeEventListener('change', handleMobileChange)
   controller.destroy()
   if (window.stellarCustomerService === publicApi) {

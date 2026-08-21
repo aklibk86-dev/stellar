@@ -484,6 +484,8 @@ const messages = {
       nextDoc: '下一篇',
       docNotFound: '文档不存在或已被删除',
       backendNotSupported: '当前后端不支持知识库模块或接口异常,请联系管理员',
+      subscriptionRequired: '请先购买套餐后再查看教程',
+      purchasePlan: '前往购买套餐',
     },
     profile: {
       changeEmail: '\u4fee\u6539\u90ae\u7bb1',
@@ -1092,6 +1094,8 @@ const messages = {
       nextDoc: 'Next',
       docNotFound: 'Document not found or deleted',
       backendNotSupported: 'The current backend does not support the knowledge base module or the API is abnormal. Please contact the administrator.',
+      subscriptionRequired: 'Please purchase a plan before viewing tutorials.',
+      purchasePlan: 'Purchase a plan',
     },
     profile: {
       changeEmail: 'Change Email',

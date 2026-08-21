@@ -12,6 +12,10 @@ import {
 
 const USER_CACHE_KEY = 'stellar_user_cache'
 const USER_CACHE_TTL = 5 * 60 * 1000
+const SESSION_STARTED_KEY = 'stellar_session_started_at'
+const SESSION_ACTIVITY_KEY = 'stellar_session_activity_at'
+const SESSION_IDLE_LIMIT = 12 * 60 * 60 * 1000
+const SESSION_MAX_LIMIT = 24 * 60 * 60 * 1000
 
 const readCachedUser = (): User | null => {
   try {
@@ -71,6 +75,38 @@ export const useUserStore = defineStore('user', () => {
     storage.setItem('stellar_subscribe_token', subToken)
     otherStorage.removeItem('stellar_auth_token')
     otherStorage.removeItem('stellar_subscribe_token')
+    otherStorage.removeItem(SESSION_STARTED_KEY)
+    otherStorage.removeItem(SESSION_ACTIVITY_KEY)
+    const now = String(Date.now())
+    storage.setItem(SESSION_STARTED_KEY, now)
+    storage.setItem(SESSION_ACTIVITY_KEY, now)
+  }
+
+  /** Enforce both an idle timeout and an absolute maximum session lifetime. */
+  const ensureSessionValid = (): boolean => {
+    if (!authToken.value) return false
+    const storage = localStorage.getItem('stellar_auth_token')?.trim()
+      ? localStorage
+      : sessionStorage
+    const now = Date.now()
+    const startedAt = Number(storage.getItem(SESSION_STARTED_KEY) || now)
+    const activityAt = Number(storage.getItem(SESSION_ACTIVITY_KEY) || now)
+    // Backfill timestamps for sessions created by older versions.
+    if (!storage.getItem(SESSION_STARTED_KEY)) storage.setItem(SESSION_STARTED_KEY, String(startedAt))
+    if (!storage.getItem(SESSION_ACTIVITY_KEY)) storage.setItem(SESSION_ACTIVITY_KEY, String(activityAt))
+    if (now - startedAt >= SESSION_MAX_LIMIT || now - activityAt >= SESSION_IDLE_LIMIT) {
+      logout()
+      return false
+    }
+    return true
+  }
+
+  const touchSession = () => {
+    if (!authToken.value || !ensureSessionValid()) return
+    const storage = localStorage.getItem('stellar_auth_token')?.trim()
+      ? localStorage
+      : sessionStorage
+    storage.setItem(SESSION_ACTIVITY_KEY, String(Date.now()))
   }
 
   const fetchUser = async (force = false): Promise<User | null> => {
@@ -144,13 +180,17 @@ export const useUserStore = defineStore('user', () => {
     fetchUserPromise = null
     localStorage.removeItem('stellar_auth_token')
     localStorage.removeItem('stellar_subscribe_token')
+    localStorage.removeItem(SESSION_STARTED_KEY)
+    localStorage.removeItem(SESSION_ACTIVITY_KEY)
     sessionStorage.removeItem('stellar_auth_token')
     sessionStorage.removeItem('stellar_subscribe_token')
+    sessionStorage.removeItem(SESSION_STARTED_KEY)
+    sessionStorage.removeItem(SESSION_ACTIVITY_KEY)
     sessionStorage.removeItem(USER_CACHE_KEY)
   }
 
   const checkLogin = async () => {
-    if (!authToken.value) return false
+    if (!ensureSessionValid()) return false
     try {
       await userApi.checkLogin()
       return true
@@ -176,6 +216,8 @@ export const useUserStore = defineStore('user', () => {
     balance,
     commissionBalance,
     setAuthData,
+    ensureSessionValid,
+    touchSession,
     fetchUser,
     fetchGuestConfig,
     login,

@@ -40,7 +40,21 @@
     </div>
 
     <!-- 加载中 -->
-    <div v-if="loading" class="state-box">
+    <div v-if="subscriptionLoading" class="state-box">
+      <span class="loading-dot"></span>
+      <span>{{ t('common.loading') }}</span>
+    </div>
+
+    <div v-else-if="!hasSubscription" class="state-box subscription-required">
+      <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18M8 15h3" />
+      </svg>
+      <p>{{ t('knowledge.subscriptionRequired') }}</p>
+      <button class="back-list-btn" type="button" @click="goToPlans">{{ t('knowledge.purchasePlan') }}</button>
+    </div>
+
+    <div v-else-if="loading" class="state-box">
       <span class="loading-dot"></span>
       <span>{{ t('common.loading') }}</span>
     </div>
@@ -114,6 +128,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NTag } from 'naive-ui'
 import { userApi } from '@/api'
+import { useUserStore } from '@/stores/user'
 import type { Knowledge, KnowledgeCategory } from '@/api/types'
 import { formatDate } from '@/utils/format'
 import { renderContent } from '@/utils/safe'
@@ -125,6 +140,16 @@ const { t, locale } = useI18n()
 const allDocs = ref<Knowledge[]>([])
 const categories = ref<KnowledgeCategory[]>([])
 const loading = ref(true)
+const subscriptionLoading = ref(true)
+const userStore = useUserStore()
+
+const hasSubscription = computed(() => {
+  const currentUser = userStore.user
+  if (!currentUser?.plan_id) return false
+  const expiresAt = currentUser.expired_at
+  return expiresAt === null || expiresAt === undefined || expiresAt === 0
+    || expiresAt >= Math.floor(Date.now() / 1000)
+})
 
 // 当前文档 ID (统一转为字符串进行比较,避免后端返回 number/string 不一致)
 const docId = computed(() => String(route.params.id ?? ''))
@@ -207,6 +232,10 @@ const goBack = () => {
   router.push({ name: 'knowledge' })
 }
 
+const goToPlans = () => {
+  router.push({ name: 'plans' })
+}
+
 // 跳转到另一篇文档
 const goDoc = (id: number) => {
   router.push({ name: 'knowledge-detail', params: { id } })
@@ -220,8 +249,14 @@ watch(() => route.params.id, (newId) => {
   }
 })
 
-onMounted(() => {
-  fetchAll()
+onMounted(async () => {
+  try {
+    await userStore.fetchUser(true)
+    if (hasSubscription.value) await fetchAll()
+  } finally {
+    subscriptionLoading.value = false
+    if (!hasSubscription.value) loading.value = false
+  }
 })
 </script>
 
@@ -339,6 +374,10 @@ onMounted(() => {
 .state-box p {
   font-size: 14px;
   margin: 0;
+}
+.subscription-required svg {
+  color: var(--stellar-primary);
+  opacity: 0.8;
 }
 .loading-dot {
   width: 16px;

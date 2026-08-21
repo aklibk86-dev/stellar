@@ -55,19 +55,21 @@
       footer_code: '',
       landing_theme_mode: 'dark',
       landing_navigation: { items: null },
+      landing_hero: { features: [] },
       sidebar_navigation: { items: null },
       telegram_group: '',
       api_error_contact: '',
       api: {
-        url_mode: 'auto',
-        static_base_urls: [],
+                     url_mode: 'static',
+                     static_base_urls: ['https://xboard.wf1.one'],
         auto: { use_same_protocol: true, host: '', append_path: '' },
         check_enabled: false,
         check_path: '/api/v1/guest/comm/config',
         proxy_enabled: false,
         proxy_url: '',
         proxy_path: '/api-proxy',
-        proxy_mode: 'base64Path'
+                     proxy_mode: 'base64Path',
+                     backend_type: 'xboard'
       },
       background: {
         enabled: false,

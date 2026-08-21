@@ -122,25 +122,17 @@
         <div class="hero-left">
           <div class="hero-badge">
             <span class="badge-dot"></span>
-            {{ t('landing.heroBadge') }}
+            {{ heroBadge }}
           </div>
           <h1 class="hero-title">
-            <span class="gradient-text">{{ appStore.title || 'Stellar' }}</span>
-            {{ t('landing.heroTitleSuffix') }}
+            <span class="gradient-text">{{ heroTitle }}</span>
+            {{ heroTitleSuffix }}
           </h1>
-          <p class="hero-subtitle">{{ t('landing.heroSubtitle') }}</p>
+          <p class="hero-subtitle">{{ heroSubtitle }}</p>
           <div class="hero-features">
-            <div class="hero-feature-item">
+            <div v-for="(feature, index) in heroFeatures" :key="`${feature}-${index}`" class="hero-feature-item">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              {{ t('landing.feature1') }}
-            </div>
-            <div class="hero-feature-item">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              {{ t('landing.feature2') }}
-            </div>
-            <div class="hero-feature-item">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              {{ t('landing.feature3') }}
+              {{ feature }}
             </div>
           </div>
           <div class="hero-cta">
@@ -398,6 +390,32 @@ const openFaq = ref<number | null>(0)
 const telegramGroupUrl = ref('')
 const navigationRoot = ref<HTMLElement | null>(null)
 const mobileMenuOpen = ref(false)
+
+const landingHero = computed(() => window.settings?.landing_hero || {})
+const localizedHeroValue = (key: 'badge' | 'title' | 'title_suffix' | 'subtitle') => {
+  const config = landingHero.value as Record<string, string | undefined>
+  const base = config[key]
+  const english = config[`${key}_en`]
+  return (locale.value === 'en-US' ? english || base : base || english) || ''
+}
+const heroBadge = computed(() => localizedHeroValue('badge') || t('landing.heroBadge'))
+const heroTitle = computed(() => localizedHeroValue('title') || appStore.title || 'Stellar')
+const heroTitleSuffix = computed(() => localizedHeroValue('title_suffix') || t('landing.heroTitleSuffix'))
+const heroSubtitle = computed(() => localizedHeroValue('subtitle') || t('landing.heroSubtitle'))
+const heroFeatures = computed(() => {
+  const configured = landingHero.value.features
+  if (Array.isArray(configured) && configured.length) {
+    return configured
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (!item || typeof item !== 'object') return ''
+        const value = item as { label?: string; label_en?: string }
+        return locale.value === 'en-US' ? value.label_en || value.label || '' : value.label || value.label_en || ''
+      })
+      .filter(Boolean)
+  }
+  return [t('landing.feature1'), t('landing.feature2'), t('landing.feature3')]
+})
 
 const defaultNavigationItems = computed<LandingNavigationItem[]>(() => [
   { label: t('landing.features'), url: '#features', newTab: false },

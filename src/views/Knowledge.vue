@@ -27,7 +27,21 @@
     </div>
 
     <!-- 无数据时全页空状态 -->
-    <div v-if="!loading && categoryGroups.length === 0" class="full-empty-state">
+    <div v-if="subscriptionLoading" class="list-loading">
+      <span class="loading-dot"></span>
+      <span>{{ t('common.loading') }}</span>
+    </div>
+
+    <div v-else-if="!hasSubscription" class="subscription-required">
+      <svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18M8 15h3" />
+      </svg>
+      <p>{{ t('knowledge.subscriptionRequired') }}</p>
+      <button class="buy-plan-btn" type="button" @click="goToPlans">{{ t('knowledge.purchasePlan') }}</button>
+    </div>
+
+    <div v-else-if="!loading && categoryGroups.length === 0" class="full-empty-state">
       <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.2">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
@@ -89,6 +103,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NInput } from 'naive-ui'
 import { userApi } from '@/api'
+import { useUserStore } from '@/stores/user'
 import type { Knowledge, KnowledgeCategory } from '@/api/types'
 import { formatDate } from '@/utils/format'
 
@@ -98,7 +113,17 @@ const { t, locale } = useI18n()
 const categories = ref<KnowledgeCategory[]>([])
 const allDocs = ref<Knowledge[]>([])
 const loading = ref(false)
+const subscriptionLoading = ref(true)
 const keyword = ref('')
+const userStore = useUserStore()
+
+const hasSubscription = computed(() => {
+  const currentUser = userStore.user
+  if (!currentUser?.plan_id) return false
+  const expiresAt = currentUser.expired_at
+  return expiresAt === null || expiresAt === undefined || expiresAt === 0
+    || expiresAt >= Math.floor(Date.now() / 1000)
+})
 
 const categoryGroups = computed(() => {
   const result: { category: string; name: string; docs: Knowledge[] }[] = []
@@ -171,16 +196,25 @@ const goToDoc = (id: number) => {
   router.push({ name: 'knowledge-detail', params: { id } })
 }
 
+const goToPlans = () => {
+  router.push({ name: 'plans' })
+}
+
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(keyword, () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
-    fetchKnowledge()
+    if (hasSubscription.value) fetchKnowledge()
   }, 350)
 })
 
 onMounted(async () => {
-  await fetchKnowledge()
+  try {
+    await userStore.fetchUser(true)
+    if (hasSubscription.value) await fetchKnowledge()
+  } finally {
+    subscriptionLoading.value = false
+  }
 })
 </script>
 
@@ -375,6 +409,33 @@ onMounted(async () => {
   color: var(--stellar-text-muted);
   text-align: center;
 }
+
+.subscription-required {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 88px 20px;
+  color: var(--stellar-text-muted);
+  text-align: center;
+  background: var(--stellar-bg-card);
+  border: 1px solid var(--stellar-border);
+  border-radius: 12px;
+}
+.subscription-required svg { color: var(--stellar-primary); opacity: 0.8; }
+.subscription-required p { margin: 0; font-size: 14px; }
+.buy-plan-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 18px;
+  background: var(--stellar-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.buy-plan-btn:hover { filter: brightness(1.08); }
 .full-empty-state svg {
   color: var(--stellar-text-muted);
   opacity: 0.4;

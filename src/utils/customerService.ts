@@ -11,6 +11,8 @@ export interface CustomerServiceConfig {
   track_page_views?: boolean
   show_on_routes?: string[]
   hide_on_routes?: string[]
+  /** Keep the widget visible on authentication pages even when hide_on_routes contains them. */
+  show_on_auth_routes?: boolean
   hide_on_mobile?: boolean
   attributes?: Record<string, CustomerServiceValue>
   tags?: string[]
@@ -151,6 +153,14 @@ const createTawkAdapter = (config: CustomerServiceConfig): CustomerServiceContro
     const api = getApi()
     if (visible) api.showWidget?.()
     else api.hideWidget?.()
+
+    // Tawk may keep the generated outer container hidden even after showWidget().
+    // Restore only its launcher container; the widget iframe keeps Tawk's own sizing.
+    const launcher = Array.from(document.body.children).find((element) => {
+      if (!(element instanceof HTMLElement) || element.id === 'app') return false
+      return Boolean(element.querySelector('iframe[style*="position: fixed"][width="64px"]'))
+    }) as HTMLElement | undefined
+    launcher?.style.setProperty('display', visible ? 'block' : 'none', 'important')
   }
 
   const applyVisitor = () => {

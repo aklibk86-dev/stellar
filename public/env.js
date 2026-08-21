@@ -64,6 +64,21 @@ window.settings = {
   // 是否启用落地页（true=首页显示落地页，false=直接跳登录/仪表盘）
   landing_page_enabled: true,
 
+  // 官网顶部 Hero 文案，可分别配置中英文；留空时使用内置翻译
+  landing_hero: {
+    badge: '',
+    badge_en: '',
+    title: '',
+    title_en: '',
+    title_suffix: '',
+    title_suffix_en: '',
+    subtitle: '',
+    subtitle_en: '',
+    features: [
+      // { label: '稳定高速', label_en: 'Stable and fast' },
+    ],
+  },
+
   // 顶部导航链接。可调整顺序、增删项目；items: [] 表示隐藏导航链接。
   // label_en 留空时，英文模式也会使用 label；url 支持 #锚点、站内路径和 http(s)/mailto/tel 链接。
   landing_navigation: {
@@ -135,7 +150,7 @@ window.settings = {
   // 第三方客服：tawk / crisp / chatwoot / intercom / custom。
   // 仅 enabled=true 时加载。标识登录用户会向客服平台发送用户 ID、邮箱和头像，可按需关闭。
   customer_service: {
-    enabled: false,
+    enabled: true,
     provider: 'tawk',
 
     // 通用加载与可见性配置
@@ -145,14 +160,16 @@ window.settings = {
     track_page_views: true,
     show_on_routes: [], // 例如 ['/dashboard', '/tickets*']；空数组表示全部路由
     hide_on_routes: ['/login', '/register', '/forget'],
+    // 登录、注册、找回密码页默认仍显示客服；设为 false 可关闭
+    show_on_auth_routes: true,
     hide_on_mobile: false,
     tags: ['stellar'],
     attributes: {},
     allow_insecure_http: false,
 
     // Tawk（https://www.tawk.to/）
-    tawk_property_id: '',
-    tawk_widget_id: 'default',
+    tawk_property_id: '6a7fee6896f34e1d453f1cf8',
+    tawk_widget_id: '1k01rmj18',
     tawk_auto_start: true,
     // 安全模式 hash 必须由后端使用 Tawk API Key 按当前用户生成，禁止在静态配置中填写通用值。
     tawk_secure_hash: '',
@@ -271,10 +288,10 @@ window.settings = {
     // 【模式选择】
     // 'static' - 固定后端地址列表（推荐静态托管使用，支持多地址+健康检测自动切换）
     // 'auto'   - 自动同源拼接（适合后端和前端部署在同一域名下）
-    url_mode: 'auto',
+    url_mode: 'static',
 
     // 【static 模式】后端 API 地址列表（支持多个，会自动检测可用的）
-    static_base_urls: [],
+    static_base_urls: ['https://xboard.wf1.one'],
 
     // 【auto 模式】同源拼接规则（url_mode='auto' 时生效）
     auto: {
@@ -297,6 +314,6 @@ window.settings = {
     // 'xboard'  - cedar2025/Xboard（默认猜测，支持魔法链接登录、礼品卡完整模块、Turnstile 验证码等）
     // 'v2board' - wyx2685/v2board 及兼容的原版 v2board（支持工单提现、流量提前重置、解绑 Telegram 等）
     // 'auto'    - 自动探测（首次请求 guest/comm/config 后根据字段判断，无法判断时按 xboard 处理）
-    backend_type: 'auto',
+    backend_type: 'xboard',
   },
 }

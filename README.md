@@ -143,6 +143,15 @@ window.settings = {
       { label: '状态页', label_en: 'Status', url: 'https://status.example.com', new_tab: true },
     ],
   },
+  landing_hero: {
+    badge: '', badge_en: '',
+    title: '', title_en: '',
+    title_suffix: '', title_suffix_en: '',
+    subtitle: '', subtitle_en: '',
+    features: [
+      { label: '稳定高速', label_en: 'Stable and fast' },
+    ],
+  },
   sidebar_navigation: {
     items: [
       { label: '仪表盘', label_en: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
@@ -214,6 +223,7 @@ window.settings = {
 | `logo` | 自定义 Logo 地址 |
 | `landing_theme_mode` | 落地页默认模式：`dark` / `light` |
 | `landing_navigation` | 落地页顶部导航；支持双语名称、锚点、站内路径、外链和新窗口打开，`items: []` 可隐藏链接 |
+| `landing_hero` | 落地页顶部 Hero 文案；支持中英文徽标、标题、标题后缀、副标题和卖点列表 |
 | `sidebar_navigation` | 后台侧边栏；支持分组、双语名称、排序、显隐、图标、徽标、站内路径及安全外链 |
 | `telegram_group` | Telegram 群组链接 |
 | `glassmorphism` | 毛玻璃卡片特效配置 |
@@ -236,7 +246,8 @@ customer_service: {
   load_on_idle: true,
   load_delay: 800,
   identify_user: true,
-  hide_on_routes: ['/login', '/register', '/forget', '/checkout/*'],
+    hide_on_routes: ['/login', '/register', '/forget', '/checkout/*'],
+    show_on_auth_routes: true,
   tags: ['stellar-panel'],
   attributes: { source: 'web' },
 }
