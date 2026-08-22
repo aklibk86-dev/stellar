@@ -425,6 +425,9 @@ server {
 
     location = /env.js { expires -1; add_header Cache-Control "no-store, no-cache"; }
     location / { try_files $uri $uri/ /index.html; }
+
+    # 禁止被 iframe 嵌入（frame-ancestors 只能通过响应头生效，meta 无效）
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
 }
 ```
 
@@ -497,7 +500,7 @@ stellar/
 
 ## 安全建议
 
-- 生产环境使用 HTTPS
+- 生产环境使用 HTTPS，并在响应头设置 `Content-Security-Policy: frame-ancestors 'none'` 禁止 iframe 嵌入（该指令**只能通过 HTTP 响应头生效**，写在 index.html 的 `<meta>` 中会被浏览器忽略）
 - 不在前端配置文件中存放敏感信息
 - 后端 CORS 限制来源，优先使用同域转发
 - 定期执行 `npm audit` 检查依赖安全
