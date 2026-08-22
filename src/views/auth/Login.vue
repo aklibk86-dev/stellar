@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page" :class="{ 'has-bg': !!backgroundUrl }">
     <div v-if="backgroundUrl" class="auth-bg" :style="{ backgroundImage: `url(${backgroundUrl})` }"></div>
-    <div class="auth-overlay"></div>
+    <div v-if="backgroundUrl" class="auth-overlay"></div>
 
     <div class="auth-container">
       <!-- 左侧品牌信息 (桌面端) -->
@@ -29,8 +29,17 @@
             </button>
           </div>
 
+          <div class="auth-mobile-brand">
+            <h1 class="auth-mobile-brand-title">{{ title }}</h1>
+            <p class="auth-mobile-brand-desc">{{ description || 'Xboard is best' }}</p>
+          </div>
+
           <h2 class="auth-title">{{ t('auth.loginTitle') }}</h2>
           <p class="auth-subtitle">{{ t('auth.loginSubtitle') }}</p>
+
+          <n-alert v-if="emailWhitelistEnabled" class="email-whitelist-alert" type="info" :show-icon="false">
+            {{ t('auth.emailWhitelistLoginHint', { suffixes: emailWhitelistSuffixes.join(', ') }) }}
+          </n-alert>
 
           <n-alert
             v-if="loginRequired"
@@ -42,7 +51,7 @@
             {{ t('auth.loginRequiredDesc') }}
           </n-alert>
 
-          <n-form ref="formRef" :model="formData" :rules="rules" size="large" @submit.prevent="handleLogin">
+          <n-form ref="formRef" class="auth-login-form" :model="formData" :rules="rules" size="medium" @submit.prevent="handleLogin">
             <n-form-item path="email" :label="t('auth.email')">
               <n-input v-model:value="formData.email" :placeholder="t('auth.email')" clearable>
                 <template #prefix>
@@ -64,7 +73,7 @@
               <router-link to="/forget" class="auth-link">{{ t('auth.goForget') }}</router-link>
             </div>
 
-            <n-button type="primary" block size="large" :loading="loading" @click="handleLogin">
+            <n-button type="primary" block size="medium" :loading="loading" @click="handleLogin">
               {{ t('auth.login') }}
             </n-button>
           </n-form>
@@ -76,7 +85,7 @@
 
           <!-- 邮件链接登录（仅 xboard 后端支持） -->
           <div v-if="showEmailLinkLogin" class="email-link-login">
-            <n-button block size="large" quaternary :loading="emailLinkLoading" @click="handleEmailLinkLogin">
+            <n-button block size="medium" quaternary :loading="emailLinkLoading" @click="handleEmailLinkLogin">
               <template #icon>
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
               </template>
@@ -85,8 +94,18 @@
           </div>
 
           <div class="auth-footer">
-            <span>{{ t('auth.noAccount') }}</span>
-            <router-link to="/register" class="auth-link">{{ t('auth.goRegister') }}</router-link>
+            <router-link to="/register" class="auth-link">
+              <span class="desktop-register-label">{{ t('auth.noAccount') }} {{ t('auth.goRegister') }}</span>
+              <span class="mobile-register-label">{{ t('auth.goRegister') }}</span>
+            </router-link>
+            <StellarDropdown :options="localeOptions" @select="handleLocaleChange">
+              <template #trigger>
+                <button type="button" class="language-toggle">
+                  <StellarIcon name="language" :size="18" />
+                  <span>{{ locale === 'zh-CN' ? '简体中文' : 'English' }}</span>
+                </button>
+              </template>
+            </StellarDropdown>
           </div>
         </div>
       </div>
@@ -105,10 +124,13 @@ import { passportApi } from '@/api'
 import { NButton } from 'naive-ui'
 import { getSafeRedirect } from '@/utils/navigation'
 import { can } from '@/utils/backend'
+import { getEmailWhitelistSuffixes } from '@/utils/emailWhitelist'
+import StellarDropdown from '@/components/StellarDropdown.vue'
+import StellarIcon from '@/components/StellarIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const message = useMessage()
 const userStore = useUserStore()
 const appStore = useAppStore()
@@ -127,6 +149,18 @@ const description = computed(() => appStore.description)
 // 向后兼容：当新的全站背景（background）启用时，由全局组件统一渲染，
 // 此处不再重复渲染 auth 专属背景；仅在新背景未启用且旧 background_url 有值时保留原行为。
 const backgroundUrl = computed(() => (appStore.backgroundEnabled ? '' : appStore.backgroundUrl))
+const emailWhitelistSuffixes = computed(() => getEmailWhitelistSuffixes(userStore.guestConfig?.email_whitelist_suffix))
+const emailWhitelistEnabled = computed(() => emailWhitelistSuffixes.value.length > 0)
+
+const localeOptions = [
+  { label: '简体中文', key: 'zh-CN' },
+  { label: 'English', key: 'en-US' },
+]
+
+const handleLocaleChange = (key: string) => {
+  appStore.setLocale(key)
+  locale.value = key
+}
 
 const formData = reactive({
   email: '',
@@ -184,6 +218,7 @@ const handleEmailLinkLogin = async () => {
 }
 
 onMounted(async () => {
+  if (!userStore.guestConfig) await userStore.fetchGuestConfig()
   const verify = Array.isArray(route.query.verify) ? route.query.verify[0] : route.query.verify
   if (typeof verify !== 'string' || !verify) return
 
@@ -307,11 +342,13 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   padding: 48px 40px;
+  overflow-y: auto;
+  max-height: 100vh;
 }
 
 .auth-form-inner {
   width: 100%;
-  max-width: 340px;
+  max-width: 400px;
 }
 
 .auth-top-actions {
@@ -341,6 +378,8 @@ onMounted(async () => {
   height: 20px;
 }
 
+.auth-mobile-brand { display: none; }
+
 .auth-title {
   font-size: 24px;
   font-weight: 700;
@@ -353,6 +392,8 @@ onMounted(async () => {
   color: var(--stellar-text-muted);
   margin-bottom: 32px;
 }
+
+.email-whitelist-alert { margin: -12px 0 20px; }
 
 .login-required-alert {
   margin-bottom: 20px;
@@ -377,15 +418,18 @@ onMounted(async () => {
 }
 
 .auth-footer {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-top: 24px;
   font-size: 13px;
   color: var(--stellar-text-muted);
 }
 
-.auth-footer .auth-link {
-  margin-left: 6px;
-}
+.language-toggle { display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 0; background: transparent; color: var(--stellar-text-muted); cursor: pointer; font-size: 13px; white-space: nowrap; }
+.language-toggle:hover { color: var(--stellar-text); }
+.mobile-register-label { display: none; }
 
 .auth-divider {
   display: flex;
@@ -410,16 +454,46 @@ onMounted(async () => {
   margin-bottom: 8px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1023px) {
+  .auth-page { align-items: stretch; }
   .auth-container {
     margin: 0;
     border-radius: 0;
     border: none;
     min-height: 100vh;
+    background: transparent;
+    box-shadow: none;
   }
 
   .auth-form-wrap {
-    padding: 24px 20px;
+    align-items: flex-start;
+    padding: 30px 17px 20px;
+  }
+
+  .auth-form-inner { max-width: 400px; margin: 0 auto; }
+  .auth-top-actions { display: none; }
+  .auth-mobile-brand { display: block; text-align: center; margin: 0 0 26px; }
+  .auth-mobile-brand-title { color: var(--stellar-text); font-size: 36px; font-weight: 500; line-height: 1.1; letter-spacing: 0.5px; opacity: 0.8; }
+  .auth-mobile-brand-desc { color: var(--stellar-text-muted); font-size: 14px; margin-top: 18px; }
+  .auth-title, .auth-subtitle { display: none; }
+  .auth-login-form :deep(.n-form-item-label) { display: none; }
+  .auth-login-form :deep(.n-form-item) { grid-template-rows: 0 auto auto; margin-bottom: 20px; }
+  .auth-login-form :deep(.n-form-item-blank) { min-height: 34px; }
+  .auth-login-form :deep(.n-form-item-feedback-wrapper) { min-height: 0; }
+  .auth-login-form :deep(.n-input),
+  .auth-login-form :deep(.n-base-selection) { min-height: 34px; }
+  .auth-login-form :deep(.n-input__input-el) { height: 32px; }
+  .auth-login-form :deep(.n-button) { height: 36px; }
+  .auth-actions { margin-bottom: 20px; }
+  .auth-footer { margin-top: 42px; }
+  .desktop-register-label { display: none; }
+  .mobile-register-label { display: inline; }
+}
+
+@media (max-width: 420px) {
+  .auth-form-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 </style>

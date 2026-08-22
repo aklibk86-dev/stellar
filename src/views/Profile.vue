@@ -57,7 +57,7 @@
               </n-form-item>
               <n-form-item :label="t('profile.avatar')">
                 <div class="avatar-field">
-                  <n-avatar round :size="40" :src="basicForm.avatar_url">
+                  <n-avatar round :size="40" :src="avatarUrl">
                     {{ avatarFallback }}
                   </n-avatar>
                 </div>
@@ -323,6 +323,7 @@ import { useMessage, useDialog, NForm, NFormItem, NInput, NButton, NSwitch, NAva
 import { useUserStore } from '@/stores/user'
 import { userApi, passportApi } from '@/api'
 import { formatDate } from '@/utils/format'
+import { resolveAvatarUrl } from '@/utils/avatar'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -419,6 +420,12 @@ const handleChangeEmail = async () => {
 const avatarFallback = computed(() => {
   return basicForm.email ? basicForm.email.charAt(0).toUpperCase() : 'U'
 })
+
+const avatarUrl = computed(() => resolveAvatarUrl({
+  ...userStore.user,
+  email: basicForm.email,
+  avatar_url: basicForm.avatar_url,
+}))
 
 // ===== 修改密码 =====
 const passwordForm = reactive({

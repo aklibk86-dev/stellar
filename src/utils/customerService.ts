@@ -75,13 +75,38 @@ const safeCallback = (provider: CustomerServiceProvider, action: string) => (err
   if (error) emit(provider, 'error', { action, error })
 }
 
+const customerProfileAttributeKeys = [
+  'email',
+  'registered_at',
+  'plan_name',
+  'expired_at',
+  'used_traffic',
+  'total_traffic',
+] as const
+
+// Keep every provider on the same minimal customer profile payload.
 const normalizeAttributes = (
   config: CustomerServiceConfig,
   visitor?: CustomerServiceVisitor,
-): Record<string, CustomerServiceValue> => ({
-  ...(config.attributes || {}),
-  ...(visitor?.attributes || {}),
-})
+): Record<string, CustomerServiceValue> => {
+  const source = {
+    ...(config.attributes || {}),
+    ...(visitor?.attributes || {}),
+  }
+  const attributes: Record<string, CustomerServiceValue> = {}
+  for (const key of customerProfileAttributeKeys) {
+    const value = source[key]
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      attributes[key] = value
+    }
+  }
+  return attributes
+}
+
+const publicCustomerProfile = (
+  config: CustomerServiceConfig,
+  visitor?: CustomerServiceVisitor,
+) => visitor ? normalizeAttributes(config, visitor) : undefined
 
 const isAllowedScriptUrl = (src: string, allowInsecureHttp = false) => {
   try {
@@ -494,11 +519,11 @@ const createCustomAdapter = (config: CustomerServiceConfig): CustomerServiceCont
       const src = config.script_url?.trim()
       if (!src) throw new Error('Missing custom customer service script URL')
       await loadScript(src, provider, config.allow_insecure_http)
-      command('visitor', visitor)
+      command('visitor', publicCustomerProfile(config, visitor))
       emit(provider, 'ready')
     },
     setVisitor(visitor) {
-      command('visitor', visitor)
+      command('visitor', publicCustomerProfile(config, visitor))
     },
     setVisible(visible) {
       command('visibility', { visible })

@@ -32,7 +32,7 @@
         <template #trigger>
           <div class="user-info">
             <div class="user-avatar">
-              <img v-if="userStore.user?.avatar_url" :src="userStore.user.avatar_url" alt="avatar" />
+              <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" />
               <span v-else>{{ userStore.user?.email?.charAt(0).toUpperCase() || 'U' }}</span>
             </div>
             <span class="user-email hidden md:block">{{ userStore.user?.email || 'User' }}</span>
@@ -52,12 +52,15 @@ import { useUserStore } from '@/stores/user'
 import StellarIcon from '@/components/StellarIcon.vue'
 import NoticeBell from '@/components/NoticeBell.vue'
 import StellarDropdown from '@/components/StellarDropdown.vue'
+import { resolveAvatarUrl } from '@/utils/avatar'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const appStore = useAppStore()
 const userStore = useUserStore()
+
+const avatarUrl = computed(() => resolveAvatarUrl(userStore.user))
 
 const currentTitle = computed(() => {
   // 优先使用 meta.title (子路由可继承父路由标题,如 knowledge-detail -> knowledge)

@@ -46,6 +46,10 @@ window.settings = {
   // Logo URL（留空用项目默认图标）
   logo: '',
 
+  // 用户头像源 URL；留空使用后端 avatar_url；支持 {email}、{username}、{seed} 占位符
+  // 示例：https://api.dicebear.com/9.x/initials/svg?seed={email}
+  avatar_source: '',
+
   // 页头自定义代码（注入到 <head> 标签尾部）
   // 支持 <script>、<style>、<link>、<meta> 等标签
   header_code: '',
@@ -279,6 +283,7 @@ window.settings = {
   //   'list' - 平铺列表式（默认，所有分类一直展开显示）
   //   'nav'  - 上下导航式（顶部上一项 + 中间当前分类大卡片 + 底部下一项 + 紧凑分类网格）
   knowledge_sidebar_style: 'nav',
+  knowledge_require_subscription: true,
 
   // ==========================================================
   // 后端 API 配置（静态托管核心配置）

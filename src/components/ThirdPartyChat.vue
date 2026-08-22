@@ -25,9 +25,8 @@ let loadTimer: number | null = null
 let idleHandle: number | null = null
 let tawkDomObserver: MutationObserver | null = null
 
-// ===== 套餐与 IP 信息（用于第三方客服展示完整订阅状态）=====
+// ===== 用户订阅信息（仅向第三方客服提供白名单字段）=====
 const subscribe = ref<Subscribe | null>(null)
-const currentIp = ref<string>('')
 
 const planName = computed(() => {
   const sub = subscribe.value
@@ -46,7 +45,7 @@ const totalTraffic = computed(() => {
 })
 
 const expireText = computed(() => {
-  const exp = subscribe.value?.expired_at
+  const exp = subscribe.value?.expired_at ?? userStore.user?.expired_at
   if (exp === null || exp === undefined) return '永久有效'
   if (exp === 0) return '-'
   return formatDate(exp)
@@ -55,17 +54,9 @@ const expireText = computed(() => {
 const fetchSubscriptionInfo = async () => {
   if (!userStore.isLoggedIn) return
   try {
-    const [subRes, sessionRes] = await Promise.allSettled([
-      userApi.getSubscribe(),
-      userApi.getActiveSession(),
-    ])
+    const [subRes] = await Promise.allSettled([userApi.getSubscribe()])
     if (subRes.status === 'fulfilled') {
       subscribe.value = subRes.value.data
-    }
-    if (sessionRes.status === 'fulfilled') {
-      const sessions = sessionRes.value.data
-      const first = Array.isArray(sessions) ? sessions[0] : null
-      currentIp.value = first?.ip || first?.name || ''
     }
   } catch (err) {
     console.warn('[CustomerService] 获取套餐信息失败:', err)
@@ -80,23 +71,19 @@ const visitor = computed<CustomerServiceVisitor | undefined>(() => {
 
   const email = runtimeIdentity?.email || user?.email || ''
   const attributes: Record<string, string | number | boolean> = {
-    ...(runtimeIdentity?.attributes || {}),
-    ...(user?.plan_id ? { plan_id: user.plan_id } : {}),
+    email,
   }
-  // 注入完整套餐信息，便于客服侧直接看到用户当前订阅状态
+  if (user?.created_at) attributes.registered_at = formatDate(user.created_at)
   if (planName.value) attributes.plan_name = planName.value
+  if (user || subscribe.value) attributes.expired_at = expireText.value
   if (subscribe.value) {
     attributes.used_traffic = usedTraffic.value
     attributes.total_traffic = totalTraffic.value
-    attributes.expired_at = expireText.value
   }
-  if (currentIp.value) attributes.current_ip = currentIp.value
   return {
     id: runtimeIdentity?.user_id || user?.uuid || email,
     hash: runtimeIdentity?.hash || config.tawk_secure_hash,
-    name: runtimeIdentity?.name || email,
     email,
-    avatar: runtimeIdentity?.avatar || user?.avatar_url || '',
     attributes,
   }
 })
@@ -245,7 +232,7 @@ onMounted(() => {
   tawkDomObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] })
   scheduleLoad()
   syncTawkDomVisibility()
-  // 拉取套餐/IP 信息，加载后 visitor 重新计算并同步到客服侧
+  // 拉取套餐信息，加载后 visitor 重新计算并同步到客服侧
   void fetchSubscriptionInfo()
 })
 

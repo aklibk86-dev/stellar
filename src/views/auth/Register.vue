@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page" :class="{ 'has-bg': !!backgroundUrl }">
     <div v-if="backgroundUrl" class="auth-bg" :style="{ backgroundImage: `url(${backgroundUrl})` }"></div>
-    <div class="auth-overlay"></div>
+    <div v-if="backgroundUrl" class="auth-overlay"></div>
 
     <div class="auth-container">
       <div class="auth-brand hidden lg:flex">
@@ -26,12 +26,27 @@
             </button>
           </div>
 
+          <div class="auth-mobile-brand">
+            <h1 class="auth-mobile-brand-title">{{ title }}</h1>
+            <p class="auth-mobile-brand-desc">{{ description || 'Xboard is best' }}</p>
+          </div>
+
           <h2 class="auth-title">{{ t('auth.registerTitle') }}</h2>
           <p class="auth-subtitle">{{ t('auth.registerSubtitle') }}</p>
 
-          <n-form ref="formRef" :model="formData" :rules="rules" size="large" @submit.prevent="handleRegister">
+          <n-form ref="formRef" class="auth-register-form" :model="formData" :rules="rules" size="medium" @submit.prevent="handleRegister">
             <n-form-item path="email" :label="t('auth.email')">
-              <n-input v-model:value="formData.email" :placeholder="t('auth.email')" clearable />
+              <n-input-group v-if="emailWhitelistEnabled" class="email-input-group">
+                <n-input v-model:value="emailLocalPart" class="email-prefix-input" :placeholder="t('auth.email')" />
+                <n-select
+                  v-model:value="selectedEmailSuffix"
+                  class="email-suffix-select"
+                  :options="emailSuffixOptions"
+                  :consistent-menu-width="false"
+                  aria-label="Email domain"
+                />
+              </n-input-group>
+              <n-input v-else v-model:value="formData.email" :placeholder="t('auth.email')" clearable />
             </n-form-item>
 
             <n-form-item path="password" :label="t('auth.password')">
@@ -55,14 +70,24 @@
               <n-input v-model:value="formData.invite_code" :placeholder="t('auth.inviteCode')" clearable />
             </n-form-item>
 
-            <n-button type="primary" block size="large" :loading="loading" @click="handleRegister" style="margin-top: 8px;">
+            <n-button type="primary" block size="medium" :loading="loading" @click="handleRegister" style="margin-top: 8px;">
               {{ t('auth.register') }}
             </n-button>
           </n-form>
 
           <div class="auth-footer">
-            <span>{{ t('auth.hasAccount') }}</span>
-            <router-link to="/login" class="auth-link">{{ t('auth.goLogin') }}</router-link>
+            <router-link to="/login" class="auth-link">
+              <span class="desktop-login-label">{{ t('auth.hasAccount') }} {{ t('auth.goLogin') }}</span>
+              <span class="mobile-login-label">{{ t('auth.backToLogin') }}</span>
+            </router-link>
+            <StellarDropdown :options="localeOptions" @select="handleLocaleChange">
+              <template #trigger>
+                <button type="button" class="language-toggle">
+                  <StellarIcon name="language" :size="18" />
+                  <span>{{ locale === 'zh-CN' ? '简体中文' : 'English' }}</span>
+                </button>
+              </template>
+            </StellarDropdown>
           </div>
         </div>
       </div>
@@ -71,17 +96,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 import { passportApi } from '@/api'
+import { getEmailWhitelistSuffixes, isEmailAllowedByWhitelist } from '@/utils/emailWhitelist'
+import StellarDropdown from '@/components/StellarDropdown.vue'
+import StellarIcon from '@/components/StellarIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const message = useMessage()
 const userStore = useUserStore()
 const appStore = useAppStore()
@@ -99,6 +127,12 @@ const description = computed(() => appStore.description)
 // 此处不再重复渲染 auth 专属背景；仅在新背景未启用且旧 background_url 有值时保留原行为。
 const backgroundUrl = computed(() => (appStore.backgroundEnabled ? '' : appStore.backgroundUrl))
 const guestConfig = computed(() => userStore.guestConfig)
+const emailWhitelistSuffixes = computed(() => getEmailWhitelistSuffixes(guestConfig.value?.email_whitelist_suffix))
+const emailWhitelistEnabled = computed(() => emailWhitelistSuffixes.value.length > 0)
+const emailSuffixOptions = computed(() => emailWhitelistSuffixes.value.map((suffix) => ({
+  label: `@${suffix}`,
+  value: suffix,
+})))
 
 const formData = reactive({
   email: '',
@@ -107,6 +141,42 @@ const formData = reactive({
   email_code: '',
   invite_code: '',
 })
+
+const emailLocalPart = ref('')
+const selectedEmailSuffix = ref('')
+
+const syncEmailFromParts = () => {
+  if (!emailWhitelistEnabled.value) return
+  const localPart = emailLocalPart.value.trim()
+  formData.email = localPart && selectedEmailSuffix.value ? `${localPart}@${selectedEmailSuffix.value}` : ''
+}
+
+watch(emailWhitelistSuffixes, (suffixes, previousSuffixes) => {
+  if (!previousSuffixes?.length && suffixes.length && formData.email && !emailLocalPart.value) {
+    const at = formData.email.lastIndexOf('@')
+    emailLocalPart.value = at > 0 ? formData.email.slice(0, at) : formData.email
+  }
+
+  if (suffixes.length && !selectedEmailSuffix.value) {
+    selectedEmailSuffix.value = suffixes[0]
+  } else if (selectedEmailSuffix.value && !suffixes.includes(selectedEmailSuffix.value)) {
+    selectedEmailSuffix.value = suffixes[0] || ''
+  }
+  syncEmailFromParts()
+}, { immediate: true })
+
+watch(emailLocalPart, syncEmailFromParts)
+watch(selectedEmailSuffix, syncEmailFromParts)
+
+const localeOptions = [
+  { label: '简体中文', key: 'zh-CN' },
+  { label: 'English', key: 'en-US' },
+]
+
+const handleLocaleChange = (key: string) => {
+  appStore.setLocale(key)
+  locale.value = key
+}
 
 const getInviteCodeFromQuery = () => {
   const inviteCode = route.query.invite_code || route.query.code
@@ -124,6 +194,13 @@ const rules = computed<FormRules>(() => ({
   email: [
     { required: true, message: t('auth.email'), trigger: 'blur' },
     { type: 'email', message: t('auth.emailFormatError'), trigger: 'blur' },
+    {
+      validator: (_rule, value) => {
+        if (!emailWhitelistEnabled.value || !value || isEmailAllowedByWhitelist(String(value), emailWhitelistSuffixes.value)) return true
+        return new Error(t('auth.emailWhitelistError', { suffixes: emailWhitelistSuffixes.value.join(', ') }))
+      },
+      trigger: 'blur',
+    },
   ],
   password: [
     { required: true, message: t('auth.password'), trigger: 'blur' },
@@ -215,16 +292,51 @@ onUnmounted(() => {
 .brand-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
 .brand-desc { font-size: 14px; opacity: 0.7; }
 .auth-form-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 40px; overflow-y: auto; max-height: 100vh; }
-.auth-form-inner { width: 100%; max-width: 340px; }
+.auth-form-inner { width: 100%; max-width: 400px; }
 .auth-top-actions { display: flex; justify-content: flex-end; margin-bottom: 24px; }
 .header-btn { background: var(--stellar-bg-hover); border: none; cursor: pointer; padding: 8px; border-radius: 8px; color: var(--stellar-text-secondary); display: flex; align-items: center; justify-content: center; }
 .header-btn:hover { color: var(--stellar-text); }
 .header-btn svg { width: 20px; height: 20px; }
+.auth-mobile-brand { display: none; }
 .auth-title { font-size: 24px; font-weight: 700; color: var(--stellar-text); margin-bottom: 8px; }
 .auth-subtitle { font-size: 14px; color: var(--stellar-text-muted); margin-bottom: 32px; }
+.email-input-group { width: 100%; }
+.email-prefix-input { flex: 1; min-width: 0; }
+.email-suffix-select { width: 124px; flex: 0 0 124px; }
+.email-suffix-select :deep(.n-base-selection) { border-radius: 0 4px 4px 0; }
+.auth-register-form :deep(.n-input-group) { display: flex; }
 .auth-link { color: var(--stellar-primary); font-size: 13px; font-weight: 500; cursor: pointer; }
 .auth-link:hover { text-decoration: underline; }
-.auth-footer { text-align: center; margin-top: 24px; font-size: 13px; color: var(--stellar-text-muted); }
-.auth-footer .auth-link { margin-left: 6px; }
-@media (max-width: 640px) { .auth-container { margin: 0; border-radius: 0; border: none; min-height: 100vh; } .auth-form-wrap { padding: 24px 20px; } }
+.auth-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; font-size: 13px; color: var(--stellar-text-muted); }
+.language-toggle { display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 0; background: transparent; color: var(--stellar-text-muted); cursor: pointer; font-size: 13px; white-space: nowrap; }
+.language-toggle:hover { color: var(--stellar-text); }
+.mobile-login-label { display: none; }
+
+@media (max-width: 1023px) {
+  .auth-page { align-items: stretch; }
+  .auth-container { margin: 0; min-height: 100vh; border: none; border-radius: 0; background: transparent; box-shadow: none; }
+  .auth-form-wrap { align-items: flex-start; padding: 30px 17px 20px; }
+  .auth-form-inner { max-width: 400px; margin: 0 auto; }
+  .auth-top-actions { display: none; }
+  .auth-mobile-brand { display: block; text-align: center; margin: 0 0 26px; }
+  .auth-mobile-brand-title { color: var(--stellar-text); font-size: 36px; font-weight: 500; line-height: 1.1; letter-spacing: 0.5px; opacity: 0.8; }
+  .auth-mobile-brand-desc { color: var(--stellar-text-muted); font-size: 14px; margin-top: 18px; }
+  .auth-title, .auth-subtitle { display: none; }
+  .auth-register-form :deep(.n-form-item-label) { display: none; }
+  .auth-register-form :deep(.n-form-item) { grid-template-rows: 0 auto auto; margin-bottom: 20px; }
+  .auth-register-form :deep(.n-form-item-blank) { min-height: 34px; }
+  .auth-register-form :deep(.n-form-item-feedback-wrapper) { min-height: 0; }
+  .auth-register-form :deep(.n-input),
+  .auth-register-form :deep(.n-base-selection) { min-height: 34px; }
+  .auth-register-form :deep(.n-input__input-el) { height: 32px; }
+  .auth-register-form :deep(.n-button) { height: 36px; margin-top: 2px !important; }
+  .auth-footer { margin-top: 42px; }
+  .desktop-login-label { display: none; }
+  .mobile-login-label { display: inline; }
+}
+
+@media (max-width: 420px) {
+  .auth-form-wrap { padding-left: 16px; padding-right: 16px; }
+  .email-suffix-select { width: 118px; flex-basis: 118px; }
+}
 </style>

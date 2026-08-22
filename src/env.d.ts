@@ -28,6 +28,8 @@ interface Window {
     /** @deprecated 已被 background 配置取代，保留以向后兼容 */
     background_url: string
     logo: string
+    /** 自定义用户头像源 URL；支持 {email}、{username}、{seed} 占位符 */
+    avatar_source?: string
     landing_theme_mode?: 'dark' | 'light'
     landing_page_enabled?: boolean
     landing_hero?: {
@@ -118,5 +120,6 @@ interface Window {
     }
     /** 文档中心分类侧边栏样式：'list' 平铺列表 | 'nav' 上下导航式 */
     knowledge_sidebar_style?: 'list' | 'nav'
+    knowledge_require_subscription?: boolean
   }
 }

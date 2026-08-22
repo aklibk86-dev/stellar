@@ -8,6 +8,8 @@ const defaultSettings = {
   version: '1.0.0',
   background_url: '',
   logo: '',
+  // 用户头像源 URL；支持 {email}、{username}、{seed} 占位符
+  avatar_source: '',
   header_code: '',
   footer_code: '',
   landing_theme_mode: 'dark' as const,
@@ -118,6 +120,7 @@ const defaultSettings = {
     border_width: 1,
     radius: 12,
   },
+  knowledge_require_subscription: true,
 }
 
 let initialized = false

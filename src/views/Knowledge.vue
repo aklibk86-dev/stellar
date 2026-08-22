@@ -9,7 +9,7 @@
     </div>
 
     <!-- 搜索框 -->
-    <div class="search-section">
+    <div v-if="canViewKnowledge" class="search-section">
       <n-input
         v-model:value="keyword"
         :placeholder="t('knowledge.search')"
@@ -32,7 +32,7 @@
       <span>{{ t('common.loading') }}</span>
     </div>
 
-    <div v-else-if="!hasSubscription" class="subscription-required">
+    <div v-else-if="!canViewKnowledge" class="subscription-required">
       <svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.4">
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 10h18M8 15h3" />
@@ -101,7 +101,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NInput } from 'naive-ui'
+import { NInput, useDialog } from 'naive-ui'
 import { userApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import type { Knowledge, KnowledgeCategory } from '@/api/types'
@@ -109,6 +109,7 @@ import { formatDate } from '@/utils/format'
 
 const router = useRouter()
 const { t, locale } = useI18n()
+const dialog = useDialog()
 
 const categories = ref<KnowledgeCategory[]>([])
 const allDocs = ref<Knowledge[]>([])
@@ -116,6 +117,7 @@ const loading = ref(false)
 const subscriptionLoading = ref(true)
 const keyword = ref('')
 const userStore = useUserStore()
+const requiresSubscription = computed(() => window.settings?.knowledge_require_subscription !== false)
 
 const hasSubscription = computed(() => {
   const currentUser = userStore.user
@@ -124,6 +126,7 @@ const hasSubscription = computed(() => {
   return expiresAt === null || expiresAt === undefined || expiresAt === 0
     || expiresAt >= Math.floor(Date.now() / 1000)
 })
+const canViewKnowledge = computed(() => !requiresSubscription.value || hasSubscription.value)
 
 const categoryGroups = computed(() => {
   const result: { category: string; name: string; docs: Knowledge[] }[] = []
@@ -200,18 +203,29 @@ const goToPlans = () => {
   router.push({ name: 'plans' })
 }
 
+const showSubscriptionDialog = () => {
+  dialog.warning({
+    title: t('knowledge.subscriptionDialogTitle'),
+    content: t('knowledge.subscriptionDialogContent'),
+    positiveText: t('knowledge.purchasePlan'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: goToPlans,
+  })
+}
+
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(keyword, () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
-    if (hasSubscription.value) fetchKnowledge()
+    if (canViewKnowledge.value) fetchKnowledge()
   }, 350)
 })
 
 onMounted(async () => {
   try {
     await userStore.fetchUser(true)
-    if (hasSubscription.value) await fetchKnowledge()
+    if (canViewKnowledge.value) await fetchKnowledge()
+    else showSubscriptionDialog()
   } finally {
     subscriptionLoading.value = false
   }
