@@ -62,7 +62,8 @@
       api_error_contact: '',
       api: {
                      url_mode: 'static',
-                     static_base_urls: ['https://xboard.wf1.one'],
+                     // 兜底占位地址：正式配置以 public/env.js 为准（env.js 缺失时由 prebuild 从模板复制）
+                     static_base_urls: ['https://panel.example.com'],
         auto: { use_same_protocol: true, host: '', append_path: '' },
         check_enabled: false,
         check_path: '/api/v1/guest/comm/config',
@@ -95,7 +96,8 @@
         radius: 12
       },
       knowledge_sidebar_style: 'list',
-      knowledge_require_subscription: true
+      // 默认不要求订阅即可查看文档（登录即可）；需要关闭时在 env.js 中设为 true
+      knowledge_require_subscription: false
     }
     document.title = window.settings.title || 'Stellar'
   </script>

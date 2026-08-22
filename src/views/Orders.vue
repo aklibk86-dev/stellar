@@ -26,6 +26,7 @@
         <span class="stat-chip-value">{{ stat.count }}</span>
       </div>
     </div>
+    <p class="stats-hint">{{ t('order.statsCurrentPageHint') }}</p>
 
     <!-- 桌面端表格 -->
     <div class="orders-table-wrapper">
@@ -239,7 +240,13 @@ import {
 import { userApi, normalizeListData } from '@/api'
 import type { Order, Plan, PaymentMethod } from '@/api/types'
 import { formatDate, formatPrice, formatPeriod } from '@/utils/format'
-import { sanitizeHtml } from '@/utils/sanitize'
+import {
+  normalizeCheckoutResult,
+  getCheckoutErrorMessage,
+  openPaymentData,
+  filterPaymentMethods,
+} from '@/utils/payment'
+import { track, ANALYTICS_EVENTS } from '@/utils/analytics'
 
 const route = useRoute()
 const router = useRouter()
@@ -249,7 +256,6 @@ const dialog = useDialog()
 
 // ===== 状态 =====
 const orders = ref<Order[]>([])
-const allOrders = ref<Order[]>([])
 const loading = ref(false)
 const pagination = reactive({
   page: 1,
@@ -304,8 +310,10 @@ const orderTips = computed(() => [
 ])
 
 // ===== 统计卡片 =====
+// 服务端分页后前端不再持有全量订单，统计基于"已加载的当前页"数据；
+// "全部"使用后端返回的 total 总数，其余状态按当前页统计（口径见页面提示文案）。
 const orderStats = computed(() => {
-  const stats = allOrders.value.reduce((acc, o) => {
+  const stats = orders.value.reduce((acc, o) => {
     switch (o.status) {
       case 0: acc.pending++; break
       case 1: acc.processing++; break
@@ -316,7 +324,7 @@ const orderStats = computed(() => {
     return acc
   }, { pending: 0, processing: 0, completed: 0, cancelled: 0 })
   return [
-    { label: t('order.allOrders'), count: allOrders.value.length, dotStyle: 'background: #3b82f6;', active: false },
+    { label: t('order.allOrders'), count: pagination.total, dotStyle: 'background: #3b82f6;', active: false },
     { label: t('order.pending'), count: stats.pending, dotStyle: 'background: #f59e0b;', active: false },
     { label: t('order.processing'), count: stats.processing, dotStyle: 'background: #06b6d4;', active: false },
     { label: t('order.completed'), count: stats.completed, dotStyle: 'background: #10b981;', active: false },
@@ -363,17 +371,18 @@ const loadPlans = async () => {
   }
 }
 
-const fetchOrders = async () => {
+// 服务端分页：直接请求对应 page/page_size，用后端返回的 total/per_page/current_page 填充分页器
+const fetchOrders = async (page = pagination.page, pageSize = pagination.pageSize) => {
   loading.value = true
   try {
-    const res = await userApi.getOrderList(1, 1000)
+    const res = await userApi.getOrderList(page, pageSize)
     const payload: any = res.data
-    allOrders.value = normalizeListData(payload)
-    pagination.total = allOrders.value.length
-    if (pagination.page > Math.ceil(pagination.total / pagination.pageSize) && pagination.page > 1) {
-      pagination.page = 1
-    }
-    updateDisplay()
+    const list = normalizeListData<Order>(payload)
+    orders.value = list
+    pagination.page = Number(payload?.current_page) || page
+    const perPage = Number(payload?.per_page)
+    if (perPage > 0) pagination.pageSize = perPage
+    pagination.total = typeof payload?.total === 'number' ? payload.total : list.length
   } catch (e: any) {
     message.error(e?.message || t('common.failed'))
   } finally {
@@ -381,14 +390,9 @@ const fetchOrders = async () => {
   }
 }
 
-const updateDisplay = () => {
-  const start = (pagination.page - 1) * pagination.pageSize
-  orders.value = allOrders.value.slice(start, start + pagination.pageSize)
-}
-
 const handlePageChange = (page: number) => {
   pagination.page = page
-  updateDisplay()
+  fetchOrders(page)
 }
 
 // ===== 表格列 =====
@@ -461,7 +465,8 @@ const columns = computed<DataTableColumns<Order>>(() => [
 const loadPaymentMethods = async () => {
   try {
     const res = await userApi.getPaymentMethod()
-    paymentMethods.value = res.data || []
+    // 与结算页共用排除策略（StripeCredit 内置黑名单 + env.js 可配置名单）
+    paymentMethods.value = filterPaymentMethods(res.data || [])
     if (paymentMethods.value.length > 0 && selectedMethod.value === null) {
       // 默认选中第一个支付方式(PaymentMethod 类型使用 id 字段)
       selectedMethod.value = paymentMethods.value[0].id
@@ -492,56 +497,6 @@ const handleCancel = (order: Order) => {
       }
     },
   })
-}
-
-interface CheckoutResult {
-  type: number
-  data: string | boolean | null
-  redirect?: boolean
-}
-
-const normalizeCheckoutResult = (res: any): CheckoutResult | null => {
-  if (res && typeof res.type === 'number') return res
-  if (res?.data && typeof res.data.type === 'number') return res.data
-  return null
-}
-
-const getCheckoutErrorMessage = (data: unknown) => {
-  if (typeof data === 'string' && data.trim()) return data
-  return t('order.paymentUnavailable')
-}
-
-const isHttpUrl = (value: string) => /^https?:\/\//i.test(value)
-
-const openPaymentData = (data: string) => {
-  if (isHttpUrl(data)) {
-    // 直接在当前页面跳转，避免浏览器弹窗拦截
-    window.location.href = data
-    return
-  }
-
-  // 部分支付网关会直接返回 HTML 表单，而不是 URL
-  if (/<form[\s\S]*<\/form>/i.test(data) || /<html[\s\S]*<\/html>/i.test(data)) {
-    // 创建临时容器，解析并提交表单
-    const div = document.createElement('div')
-    div.innerHTML = sanitizeHtml(data)
-    document.body.appendChild(div)
-    // 自动提交第一个表单
-    const form = div.querySelector('form')
-    if (form) {
-      form.target = '_self'
-      form.submit()
-      return
-    }
-    // 如果没有表单，直接写入页面
-    document.body.innerHTML = sanitizeHtml(data)
-    return
-  }
-
-  // 其他返回内容：使用 blob URL 在当前页面打开
-  const blob = new Blob([sanitizeHtml(data)], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  window.location.href = url
 }
 
 const handleDetail = async (order: Order) => {
@@ -590,10 +545,12 @@ const confirmCheckout = async () => {
     }
     if (result.type === -1 && result.data === true) {
       message.success(t('order.paySuccess'))
+      track(ANALYTICS_EVENTS.order_payment_success, { trade_no: tradeNo })
     } else if (result.type === -1) {
       message.error(getCheckoutErrorMessage(result.data))
     } else if (result.type === 0) {
       message.success(t('order.paySuccess'))
+      track(ANALYTICS_EVENTS.order_payment_success, { trade_no: tradeNo })
     } else if (typeof result.data === 'string' && result.data) {
       message.success(t('order.redirecting'))
       openPaymentData(result.data)
@@ -724,6 +681,11 @@ onMounted(async () => {
   font-size: 15px;
   font-weight: 700;
   color: var(--stellar-text);
+}
+.stats-hint {
+  font-size: 11px;
+  color: var(--stellar-text-muted);
+  margin: -6px 0 0;
 }
 
 /* 桌面端表格容器 */

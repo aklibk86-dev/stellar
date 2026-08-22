@@ -184,8 +184,15 @@ import { useMessage, NButton, NInput, NSkeleton, NAlert } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, PaymentMethod, Coupon } from '@/api/types'
 import { formatPrice } from '@/utils/format'
-import { renderRichContent, sanitizeHtml } from '@/utils/safe'
+import { renderRichContent } from '@/utils/safe'
 import { normalizeCoupon } from '@/utils/backend'
+import {
+  normalizeCheckoutResult,
+  getCheckoutErrorMessage,
+  openPaymentData,
+  filterPaymentMethods,
+} from '@/utils/payment'
+import { track, ANALYTICS_EVENTS } from '@/utils/analytics'
 
 const route = useRoute()
 const router = useRouter()
@@ -314,56 +321,6 @@ const resetCoupon = () => {
   couponData.value = null
 }
 
-interface CheckoutResult {
-  type: number
-  data: string | boolean | null
-  redirect?: boolean
-}
-
-const normalizeCheckoutResult = (res: any): CheckoutResult | null => {
-  if (res && typeof res.type === 'number') return res
-  if (res?.data && typeof res.data.type === 'number') return res.data
-  return null
-}
-
-const getCheckoutErrorMessage = (data: unknown) => {
-  if (typeof data === 'string' && data.trim()) return data
-  return t('order.paymentUnavailable')
-}
-
-const isHttpUrl = (value: string) => /^https?:\/\//i.test(value)
-
-const openPaymentData = (data: string) => {
-  if (isHttpUrl(data)) {
-    // 直接在当前页面跳转，避免浏览器弹窗拦截
-    window.location.href = data
-    return
-  }
-
-  // 部分支付网关会直接返回 HTML 表单，而不是 URL
-  if (/<form[\s\S]*<\/form>/i.test(data) || /<html[\s\S]*<\/html>/i.test(data)) {
-    // 创建临时容器，解析并提交表单
-    const div = document.createElement('div')
-    div.innerHTML = sanitizeHtml(data)
-    document.body.appendChild(div)
-    // 自动提交第一个表单
-    const form = div.querySelector('form')
-    if (form) {
-      form.target = '_self'
-      form.submit()
-      return
-    }
-    // 如果没有表单，直接写入页面
-    document.body.innerHTML = sanitizeHtml(data)
-    return
-  }
-
-  // 其他返回内容：使用 blob URL 在当前页面打开
-  const blob = new Blob([sanitizeHtml(data)], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  window.location.href = url
-}
-
 const loadCreatedOrder = async (tradeNo: string) => {
   const detailRes = await userApi.orderDetail(tradeNo)
   orderDetail.value = detailRes.data
@@ -374,10 +331,12 @@ const loadCreatedOrder = async (tradeNo: string) => {
   }
   if (actualPayAmount.value > 0 && paymentMethods.value.length === 0) {
     const payRes = await userApi.getPaymentMethod()
-    // StripeCredit requires client-side card tokenization; do not expose a method this theme cannot submit safely.
+    // StripeCredit 需要客户端侧银行卡 token 化，本主题无法安全提交；
+    // 统一走 payment.ts 的排除策略（内置黑名单 + env.js 可配置名单），与订单页行为一致。
     const methods = payRes.data || []
-    excludedStripeCredit.value = methods.some(method => method.payment === 'StripeCredit')
-    paymentMethods.value = methods.filter(method => method.payment !== 'StripeCredit')
+    const filtered = filterPaymentMethods(methods)
+    excludedStripeCredit.value = methods.length > 0 && filtered.length === 0
+    paymentMethods.value = filtered
   }
   if (actualPayAmount.value > 0 && paymentMethods.value.length > 0 && selectedPayment.value === null) {
     selectedPayment.value = paymentMethods.value[0].id
@@ -402,6 +361,7 @@ const submitOrder = async () => {
       await loadCreatedOrder(tradeNo)
       await router.replace({ path: route.path, query: { trade_no: tradeNo } })
       message.success(t('order.orderCreated'))
+      track(ANALYTICS_EVENTS.order_created, { plan_id: plan.value.id, period: selectedPeriod.value })
       window.dispatchEvent(new CustomEvent('refresh-pending-orders'))
       return
     }
@@ -422,12 +382,14 @@ const submitOrder = async () => {
     // 根据 Xboard 源码处理：type=-1 且 data=true 表示免费/余额订单已处理完成；type=1 表示跳转支付
     if (checkoutData.type === -1 && checkoutData.data === true) {
       message.success(t('order.paySuccess'))
+      track(ANALYTICS_EVENTS.order_payment_success, { trade_no: tradeNo })
       router.push('/orders')
     } else if (checkoutData.type === -1) {
       paymentError.value = getCheckoutErrorMessage(checkoutData.data)
       message.error(paymentError.value)
     } else if (checkoutData.type === 0) {
       message.success(t('order.paySuccess'))
+      track(ANALYTICS_EVENTS.order_payment_success, { trade_no: tradeNo })
       router.push('/orders')
     } else if (typeof checkoutData.data === 'string' && checkoutData.data) {
       message.info(t('order.redirecting'))

@@ -9,13 +9,39 @@ import {
   normalizeUser,
   normalizeGuestConfig,
 } from '@/utils/backend'
+import { track, ANALYTICS_EVENTS } from '@/utils/analytics'
 
 const USER_CACHE_KEY = 'stellar_user_cache'
 const USER_CACHE_TTL = 5 * 60 * 1000
 const SESSION_STARTED_KEY = 'stellar_session_started_at'
 const SESSION_ACTIVITY_KEY = 'stellar_session_activity_at'
-const SESSION_IDLE_LIMIT = 12 * 60 * 60 * 1000
-const SESSION_MAX_LIMIT = 24 * 60 * 60 * 1000
+
+// 会话超时由 env.js 的 session 配置控制（单位：小时，0 = 不限制），
+// 未配置时回退到与修复前一致的默认值：空闲 12h / 绝对 24h。
+interface SessionTimeoutConfig {
+  idleHours: number
+  maxHours: number
+  rememberedMaxHours: number
+}
+
+const SESSION_DEFAULT: SessionTimeoutConfig = {
+  idleHours: 12,
+  maxHours: 24,
+  rememberedMaxHours: 24,
+}
+
+const readSessionConfig = (): SessionTimeoutConfig => {
+  const cfg = window.settings?.session || {}
+  const maxHours = Number(cfg.max_hours ?? SESSION_DEFAULT.maxHours)
+  return {
+    idleHours: Number(cfg.idle_hours ?? SESSION_DEFAULT.idleHours),
+    maxHours,
+    // 勾选"记住我"时使用 remembered_max_hours，未配置则与 max_hours 相同
+    rememberedMaxHours: cfg.remembered_max_hours === undefined || cfg.remembered_max_hours === null
+      ? maxHours
+      : Number(cfg.remembered_max_hours),
+  }
+}
 
 const readCachedUser = (): User | null => {
   try {
@@ -82,19 +108,31 @@ export const useUserStore = defineStore('user', () => {
     storage.setItem(SESSION_ACTIVITY_KEY, now)
   }
 
-  /** Enforce both an idle timeout and an absolute maximum session lifetime. */
+  /**
+   * Enforce both an idle timeout and an absolute maximum session lifetime.
+   * - 时长来自 env.js 的 session 配置（idle_hours / max_hours / remembered_max_hours），0 = 不限制
+   * - 勾选"记住我"的会话（token 存于 localStorage）使用 remembered_max_hours 作为绝对上限，
+   *   未配置 remembered_max_hours 时与 max_hours 相同，保持默认行为不突变
+   */
   const ensureSessionValid = (): boolean => {
     if (!authToken.value) return false
     const storage = localStorage.getItem('stellar_auth_token')?.trim()
       ? localStorage
       : sessionStorage
+    const { idleHours, maxHours, rememberedMaxHours } = readSessionConfig()
+    // token 在 localStorage = 勾选了"记住我"
+    const absoluteMaxHours = storage === localStorage ? rememberedMaxHours : maxHours
     const now = Date.now()
     const startedAt = Number(storage.getItem(SESSION_STARTED_KEY) || now)
     const activityAt = Number(storage.getItem(SESSION_ACTIVITY_KEY) || now)
     // Backfill timestamps for sessions created by older versions.
     if (!storage.getItem(SESSION_STARTED_KEY)) storage.setItem(SESSION_STARTED_KEY, String(startedAt))
     if (!storage.getItem(SESSION_ACTIVITY_KEY)) storage.setItem(SESSION_ACTIVITY_KEY, String(activityAt))
-    if (now - startedAt >= SESSION_MAX_LIMIT || now - activityAt >= SESSION_IDLE_LIMIT) {
+    const idleMs = now - activityAt
+    const totalMs = now - startedAt
+    const exceededIdle = idleHours > 0 && idleMs >= idleHours * 60 * 60 * 1000
+    const exceededMax = absoluteMaxHours > 0 && totalMs >= absoluteMaxHours * 60 * 60 * 1000
+    if (exceededIdle || exceededMax) {
       logout()
       return false
     }
@@ -162,6 +200,7 @@ export const useUserStore = defineStore('user', () => {
     const res = await passportApi.login(email, password)
     setAuthData(res.data.auth_data, res.data.token, remember)
     await fetchUser(true)
+    track(ANALYTICS_EVENTS.login_success)
     return res.data
   }
 
@@ -169,6 +208,7 @@ export const useUserStore = defineStore('user', () => {
     const res = await passportApi.register(email, password, invite_code, email_code)
     setAuthData(res.data.auth_data, res.data.token)
     await fetchUser(true)
+    track(ANALYTICS_EVENTS.register_success)
     return res.data
   }
 

@@ -180,9 +180,20 @@ const activeFilter = ref('all')
 const sortBy = ref('default')
 
 // ===== 公告 =====
-const PLAN_NOTICE_TAG = '套餐'
-const POPUP_NOTICE_TAG = '弹窗'
+// 标签关键词可配置（env.js 的 notice_tags，支持中英文，不区分大小写），
+// 默认值同时兼容中文（套餐/弹窗/重要）与英文（Plan/Popup/Important）。
 const PLAN_NOTICE_SILENT_PREFIX = 'stellar_plan_notice_silent:'
+
+const noticeTags = computed(() => {
+  const cfg = window.settings?.notice_tags
+  const fallback = { plan: ['套餐', 'Plan'], popup: ['弹窗', 'Popup'], important: ['重要', 'Important'] }
+  const pick = (list: string[] | undefined, def: string[]) => (list && list.length > 0 ? list : def)
+  return {
+    plan: pick(cfg?.plan, fallback.plan),
+    popup: pick(cfg?.popup, fallback.popup),
+    important: pick(cfg?.important, fallback.important),
+  }
+})
 
 const planNotices = ref<Notice[]>([])
 const noticeModalVisible = ref(false)
@@ -230,8 +241,17 @@ const planTips = computed(() => [
 
 // ===== 公告工具函数 =====
 const getNoticeTags = (notice: Notice | null) => Array.isArray(notice?.tags) ? notice.tags.filter(Boolean) : []
-const isImportantNotice = (notice: Notice | null) => getNoticeTags(notice).some(tag => tag.trim() === '重要')
-const isPopupNotice = (notice: Notice | null) => getNoticeTags(notice).some(tag => tag.trim() === POPUP_NOTICE_TAG)
+
+// 匹配标签：trim() 后不区分大小写比较，避免前后空格/大小写误判
+const matchesAnyTag = (notice: Notice | null, keywords: string[]) => {
+  const tags = getNoticeTags(notice)
+  const lowerKeywords = keywords.map(k => k.trim().toLowerCase()).filter(Boolean)
+  if (lowerKeywords.length === 0) return false
+  return tags.some(tag => lowerKeywords.includes(tag.trim().toLowerCase()))
+}
+
+const isImportantNotice = (notice: Notice | null) => matchesAnyTag(notice, noticeTags.value.important)
+const isPopupNotice = (notice: Notice | null) => matchesAnyTag(notice, noticeTags.value.popup)
 
 const getNoticeTitleClass = (notice: Notice | null) => {
   if (isImportantNotice(notice)) return 'title-important'
@@ -240,10 +260,10 @@ const getNoticeTitleClass = (notice: Notice | null) => {
 }
 
 const getNoticeTagClass = (tag: string) => {
-  const t = tag.trim()
-  if (t === '重要') return 'tag-important'
-  if (t === '弹窗') return 'tag-popup'
-  if (t === '套餐') return 'tag-plan'
+  const t = tag.trim().toLowerCase()
+  if (noticeTags.value.important.some(k => k.trim().toLowerCase() === t)) return 'tag-important'
+  if (noticeTags.value.popup.some(k => k.trim().toLowerCase() === t)) return 'tag-popup'
+  if (noticeTags.value.plan.some(k => k.trim().toLowerCase() === t)) return 'tag-plan'
   return ''
 }
 
@@ -357,9 +377,11 @@ const fetchPlanNotices = async () => {
   try {
     const res = await userApi.getNotices()
     const allNotices: Notice[] = res.data || []
-    // 筛选标签包含"套餐"的公告
+    // 筛选标签包含"套餐"（或配置的 plan 关键词）的公告
     planNotices.value = allNotices.filter(n =>
-      Array.isArray(n.tags) && n.tags.some(tag => tag.trim() === PLAN_NOTICE_TAG)
+      Array.isArray(n.tags) && n.tags.some(tag =>
+        noticeTags.value.plan.some(k => k.trim().toLowerCase() === tag.trim().toLowerCase())
+      )
     )
     // 自动弹窗:找到第一条需要弹窗的公告
     const popupNotice = planNotices.value.find(shouldAutoPopup)

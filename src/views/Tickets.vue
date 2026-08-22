@@ -227,6 +227,7 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NButton, NTag, NModal, NForm, NFormItem, NInput, NSelect, NEmpty } from 'naive-ui'
 import { userApi } from '@/api'
 import { formatDate } from '@/utils/format'
+import { track, ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { Ticket } from '@/api/types'
 
 const { t } = useI18n()
@@ -431,6 +432,7 @@ const submitCreateTicket = async () => {
   createLoading.value = true
   try {
     const res = await userApi.createTicket(form.subject.trim(), form.level, form.message.trim())
+    track(ANALYTICS_EVENTS.ticket_created, { id: res.data?.id ?? null })
     message.success(t('common.success'))
     createModalVisible.value = false
     await fetchTickets()

@@ -18,9 +18,29 @@
           <span class="balance-label">{{ t('dashboard.balance') }}</span>
           <div class="balance-row">
             <span class="balance-amount">¥{{ formatMoney(user?.balance) }}</span>
-            <button class="recharge-btn" @click="$router.push('/plans')">{{ t('dashboard.recharge') }}</button>
+            <button class="recharge-btn" @click="$router.push('/plans')">{{ t('dashboard.buyPlan') }}</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 首次使用引导（有订阅但从未打开过一键导入的新用户） -->
+    <div v-if="showOnboarding" class="onboarding-banner">
+      <div class="onboarding-text">
+        <span class="onboarding-title">{{ t('dashboard.onboardingTitle') }}</span>
+        <span class="onboarding-desc">{{ t('dashboard.onboardingDesc') }}</span>
+        <div class="onboarding-steps">
+          <span class="onboarding-step" @click="onboardingStep1">{{ t('dashboard.onboardingStep1') }}</span>
+          <span class="onboarding-arrow">→</span>
+          <span class="onboarding-step" @click="onboardingStep2">{{ t('dashboard.onboardingStep2') }}</span>
+          <span class="onboarding-arrow">→</span>
+          <span class="onboarding-step" @click="onboardingStep3">{{ t('dashboard.onboardingStep3') }}</span>
+        </div>
+      </div>
+      <div class="onboarding-actions">
+        <n-button size="tiny" quaternary @click="dismissOnboarding(true)">{{ t('dashboard.onboardingDontShow') }}</n-button>
+        <n-button size="tiny" quaternary @click="dismissOnboarding(false)">{{ t('dashboard.onboardingSkip') }}</n-button>
+        <n-button size="tiny" type="primary" @click="onboardingStep3">{{ t('dashboard.onboardingStep3') }}</n-button>
       </div>
     </div>
 
@@ -259,6 +279,10 @@
               <span class="loading-dot"></span>
               <span>{{ t('common.loading') }}</span>
             </div>
+            <div v-else-if="ordersFailed" class="list-error">
+              <p>{{ t('dashboard.recentOrdersFailed') }}</p>
+              <button type="button" class="mini-btn primary" @click="fetchRecentOrders">{{ t('common.retry') }}</button>
+            </div>
             <div v-else-if="recentOrders.length === 0" class="list-empty" @click="$router.push('/plans')">
               <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
               <p>{{ t('dashboard.noOrders') }}</p>
@@ -296,6 +320,10 @@
             <div v-if="ticketsLoading" class="list-loading">
               <span class="loading-dot"></span>
               <span>{{ t('common.loading') }}</span>
+            </div>
+            <div v-else-if="ticketsFailed" class="list-error">
+              <p>{{ t('dashboard.recentTicketsFailed') }}</p>
+              <button type="button" class="mini-btn primary" @click="fetchRecentTickets">{{ t('common.retry') }}</button>
             </div>
             <div v-else-if="recentTickets.length === 0" class="list-empty" @click="$router.push('/tickets')">
               <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -421,7 +449,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NProgress, NSkeleton, useDialog } from 'naive-ui'
@@ -440,6 +468,7 @@ import {
   pageIsOlderThanRange,
 } from '@/utils/trafficHeatmap'
 import { can } from '@/utils/backend'
+import { track, ANALYTICS_EVENTS } from '@/utils/analytics'
 import SubscribeImportModal from '@/components/SubscribeImportModal.vue'
 
 const { t, locale } = useI18n()
@@ -460,15 +489,19 @@ const renewLoading = ref(false)
 // ===== 最近订单 =====
 const recentOrders = ref<Order[]>([])
 const ordersLoading = ref(false)
+// 接口失败与"真实无数据"分离：失败时展示错误文案 + 重试按钮，不再渲染成"暂无订单"
+const ordersFailed = ref(false)
 
 const fetchRecentOrders = async () => {
   ordersLoading.value = true
   try {
     const res = await userApi.getOrderList(1, 5)
     recentOrders.value = normalizeListData<Order>(res.data as any).slice(0, 5)
+    ordersFailed.value = false
   } catch (err) {
     console.warn('[Dashboard] 获取最近订单失败:', err)
     recentOrders.value = []
+    ordersFailed.value = true
   } finally {
     ordersLoading.value = false
   }
@@ -480,6 +513,7 @@ const getTicketStatusText = (status: number) => t(`dashboard.ticketStatus${statu
 // ===== 最近工单 =====
 const recentTickets = ref<Ticket[]>([])
 const ticketsLoading = ref(false)
+const ticketsFailed = ref(false)
 
 const fetchRecentTickets = async () => {
   ticketsLoading.value = true
@@ -487,9 +521,11 @@ const fetchRecentTickets = async () => {
     const res = await userApi.getTicketList(1)
     const list = normalizeListData<Ticket>(res.data as any)
     recentTickets.value = list.slice(0, 5)
+    ticketsFailed.value = false
   } catch (err) {
     console.warn('[Dashboard] 获取最近工单失败:', err)
     recentTickets.value = []
+    ticketsFailed.value = true
   } finally {
     ticketsLoading.value = false
   }
@@ -702,6 +738,51 @@ const fetchData = async () => {
   loading.value = false
 }
 
+/**
+ * 取消与目标套餐相关的待支付订单（T-06）：
+ * - 只处理 plan_id 与本次操作相同的待支付订单，绝不误删其他套餐的订单；
+ * - 存在将被取消的订单时，先弹确认框列出明细，用户确认后才逐个取消；
+ * - 无相关待付订单时不弹窗。
+ * @returns 用户确认（或无需取消）时返回完整订单列表供调用方复用；用户取消操作时返回 null
+ */
+const ensurePendingOrdersCancelled = async (planId: number | null | undefined): Promise<any[] | null> => {
+  if (!planId) return []
+  const orderRes = await userApi.getOrderList()
+  const allOrders = normalizeListData<any>(orderRes.data as any)
+  const pendingOrders = (allOrders || []).filter((o: any) => o.status === 0 && Number(o.plan_id) === Number(planId))
+  if (pendingOrders.length === 0) return allOrders
+
+  const confirm = (): Promise<boolean> => new Promise((resolve) => {
+    let settled = false
+    const finish = (value: boolean) => { if (!settled) { settled = true; resolve(value) } }
+    const orderLines = pendingOrders.map((o: any) => {
+      const planName = plans.value.find((p: Plan) => p.id === Number(o.plan_id))?.name || `#${o.plan_id}`
+      return t('dashboard.cancelPendingOrdersItem', {
+        tradeNo: String(o.trade_no),
+        planName,
+        amount: formatMoney(o.total_amount),
+      })
+    }).join('\n')
+    dialog.warning({
+      title: t('dashboard.cancelPendingOrdersTitle'),
+      content: `${t('dashboard.cancelPendingOrdersContent', { count: pendingOrders.length })}\n${orderLines}\n\n${t('dashboard.cancelPendingOrdersWarning')}`,
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => finish(true),
+      onNegativeClick: () => finish(false),
+      onClose: () => finish(false),
+      onMaskClick: () => finish(false),
+    })
+  })
+
+  const confirmed = await confirm()
+  if (!confirmed) return null
+  for (const order of pendingOrders) {
+    try { await userApi.orderCancel(order.trade_no) } catch (err) { console.error('[Dashboard] 取消待支付订单失败:', err) }
+  }
+  return allOrders
+}
+
 const handleRenew = async () => {
   const planId = subscribe.value?.plan_id
   if (!planId) {
@@ -712,13 +793,9 @@ const handleRenew = async () => {
   if (renewLoading.value) return
   renewLoading.value = true
   try {
-    // 1. 取消未付款订单，避免 orderSave 报“存在未付款订单”
-    const orderRes = await userApi.getOrderList()
-    const allOrders = normalizeListData<any>(orderRes.data as any)
-    const pendingOrders = allOrders.filter((o: any) => o.status === 0) || []
-    for (const order of pendingOrders) {
-      try { await userApi.orderCancel(order.trade_no) } catch (err) { console.error('[Dashboard] 取消待支付订单失败:', err) }
-    }
+    // 1. 取消与本套餐相关的待支付订单（需用户确认，且不误删其他套餐订单）
+    const allOrders = await ensurePendingOrdersCancelled(planId)
+    if (!allOrders) return
 
     // 2. 续费用与当前订阅相同的周期：取最近一份已完成订单的 period
     let period = ''
@@ -742,6 +819,7 @@ const handleRenew = async () => {
     if (!tradeNo) throw new Error('No trade_no')
 
     // 4. 直接跳转到支付页面，Checkout 页面读取 trade_no 后自动进入支付方式选择阶段
+    track(ANALYTICS_EVENTS.renew_success, { plan_id: planId })
     window.dispatchEvent(new CustomEvent('refresh-pending-orders'))
     await router.push({ name: 'checkout', params: { planId: String(planId) }, query: { trade_no: tradeNo } })
   } catch (err: any) {
@@ -771,23 +849,21 @@ const handleResetTraffic = () => {
           await userApi.newPeriod()
           const subscribeRes = await userApi.getSubscribe()
           subscribe.value = subscribeRes.data
+          track(ANALYTICS_EVENTS.traffic_reset, { plan_id: subscribe.value?.plan_id ?? null, method: 'new_period' })
           message.success(t('dashboard.newPeriodSuccess'))
           return
         }
 
         const planId = subscribe.value.plan_id
-        // 先检查是否有未完成订单
-        const orderRes = await userApi.getOrderList()
-        const allOrders = normalizeListData<any>(orderRes.data as any)
-        const pendingOrders = allOrders.filter((o: any) => o.status === 0) || []
-        // 取消未完成订单
-        for (const order of pendingOrders) {
-          try { await userApi.orderCancel(order.trade_no) } catch (err) { console.error('[Dashboard] 取消待支付订单失败:', err) }
-        }
+        // 取消与本套餐相关的待支付订单（需用户确认，不误删其他套餐订单）；
+        // 用户拒绝确认时中止本次重置
+        const orderList = await ensurePendingOrdersCancelled(planId)
+        if (!orderList) return
         // 创建重置订单
         const res = await userApi.orderSave(planId, 'reset_price')
         const tradeNo = typeof res.data === 'string' ? res.data : (res.data as any)?.trade_no
         if (tradeNo) {
+          track(ANALYTICS_EVENTS.traffic_reset, { plan_id: planId, method: 'reset_order', trade_no: tradeNo })
           message.success(t('dashboard.resetTrafficSuccess'))
           // 跳转到订单页面
           router.push('/orders')
@@ -832,10 +908,52 @@ const copySubscribeUrl = async () => {
   }
 }
 
+// ===== 首次使用引导（T-12） =====
+const ONBOARDING_SEEN_KEY = 'stellar_onboarding_seen'
+const ONBOARDING_SESSION_KEY = 'stellar_onboarding_skipped_session'
+const showOnboarding = ref(false)
+
+const maybeShowOnboarding = () => {
+  if (!hasSubscription.value) return
+  if (localStorage.getItem(ONBOARDING_SEEN_KEY)) return
+  if (sessionStorage.getItem(ONBOARDING_SESSION_KEY)) return
+  showOnboarding.value = true
+}
+
+const dismissOnboarding = (permanent: boolean) => {
+  showOnboarding.value = false
+  if (permanent) {
+    localStorage.setItem(ONBOARDING_SEEN_KEY, '1')
+    sessionStorage.removeItem(ONBOARDING_SESSION_KEY)
+  } else {
+    sessionStorage.setItem(ONBOARDING_SESSION_KEY, '1')
+  }
+}
+
+const onboardingStep1 = async () => {
+  await copySubscribeUrl()
+}
+
+const onboardingStep2 = () => {
+  const el = document.querySelector('.client-download-card')
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const onboardingStep3 = () => {
+  // 打开一键导入弹窗即视为完成引导，之后不再打扰
+  dismissOnboarding(true)
+  showSubscribeModal.value = true
+}
+
+// 用户通过任何入口打开一键导入弹窗后，不再展示引导
+watch(showSubscribeModal, (visible) => {
+  if (visible && showOnboarding.value) dismissOnboarding(true)
+})
+
 let secondaryLoadTimer: number | null = null
 
 onMounted(() => {
-  void fetchData()
+  void fetchData().then(() => maybeShowOnboarding())
   secondaryLoadTimer = window.setTimeout(() => {
     void fetchTrafficHeatmap()
     void fetchRecentOrders()
@@ -1017,6 +1135,22 @@ onBeforeUnmount(() => {
 .list-empty:hover { color: var(--stellar-primary); }
 .list-empty p { font-size: 13px; margin: 0; font-weight: 500; }
 .empty-hint { font-size: 11px; opacity: 0.7; }
+
+/* 列表加载失败态（区分"接口失败"与"暂无数据"） */
+.list-error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 28px 20px; flex: 1; color: var(--stellar-text-muted); }
+.list-error p { font-size: 13px; margin: 0; font-weight: 500; color: #ef4444; }
+
+/* 首次使用引导横幅 */
+.onboarding-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 20px; border-radius: 12px; background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.10)); border: 1px solid rgba(59,130,246,0.25); }
+.onboarding-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.onboarding-title { font-size: 14px; font-weight: 700; color: var(--stellar-text); }
+.onboarding-desc { font-size: 12px; color: var(--stellar-text-muted); }
+.onboarding-steps { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.onboarding-step { font-size: 12px; font-weight: 600; color: var(--stellar-primary); cursor: pointer; padding: 4px 10px; border-radius: 8px; background: var(--stellar-bg-card); border: 1px solid var(--stellar-border-light); transition: all 0.2s; }
+.onboarding-step:hover { border-color: var(--stellar-primary); }
+.onboarding-arrow { font-size: 12px; color: var(--stellar-text-muted); }
+.onboarding-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
 .loading-dot { width: 14px; height: 14px; border: 2px solid var(--stellar-border); border-top-color: var(--stellar-primary); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
 .loading-dot.small { width: 12px; height: 12px; border-width: 1.5px; }
 @keyframes spin { to { transform: rotate(360deg); } }

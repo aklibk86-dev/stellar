@@ -95,6 +95,9 @@ const defaultSettings = {
     proxy_mode: 'base64Path' as const,
     // 后端类型：'xboard' | 'v2board' | 'auto'（自动探测）
     backend_type: 'auto' as const,
+    // 支付方式排除名单（按 payment 标识精确匹配，如 'StripeCredit'）；
+    // 前端另有内置黑名单保证无法安全提交的支付方式永不出现
+    exclude_payment_methods: [] as string[],
   },
   // 全站背景配置（支持静态图片 / 视频两种媒体类型）
   background: {
@@ -120,7 +123,20 @@ const defaultSettings = {
     border_width: 1,
     radius: 12,
   },
-  knowledge_require_subscription: true,
+  knowledge_require_subscription: false,
+  // 会话超时配置（单位：小时，0 = 不限制）
+  session: {
+    idle_hours: 12,
+    max_hours: 24,
+    // 勾选"记住我"时的绝对超时上限；未配置时与 max_hours 相同
+    remembered_max_hours: 24,
+  },
+  // 公告标签关键词（支持中英文），用于套餐公告列表、自动弹窗、重要高亮
+  notice_tags: {
+    plan: ['套餐', 'Plan'],
+    popup: ['弹窗', 'Popup'],
+    important: ['重要', 'Important'],
+  },
 }
 
 let initialized = false
@@ -223,6 +239,26 @@ export function initRuntimeSettings() {
     glassmorphism: {
       ...defaultSettings.glassmorphism,
       ...((s.glassmorphism || {}) as Record<string, unknown>),
+    },
+    session: {
+      ...defaultSettings.session,
+      ...((s.session || {}) as Record<string, unknown>),
+    },
+    notice_tags: {
+      ...defaultSettings.notice_tags,
+      ...((s.notice_tags || {}) as Record<string, unknown>),
+      plan: pickConfiguredList(
+        (s.notice_tags as Record<string, unknown> | undefined)?.plan,
+        defaultSettings.notice_tags.plan,
+      ),
+      popup: pickConfiguredList(
+        (s.notice_tags as Record<string, unknown> | undefined)?.popup,
+        defaultSettings.notice_tags.popup,
+      ),
+      important: pickConfiguredList(
+        (s.notice_tags as Record<string, unknown> | undefined)?.important,
+        defaultSettings.notice_tags.important,
+      ),
     },
   } as unknown as Window['settings']
 

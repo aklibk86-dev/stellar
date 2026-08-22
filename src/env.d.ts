@@ -17,6 +17,7 @@ interface Window {
     attributes?: Record<string, string | number | boolean>
   }
   stellarCustomerService?: import('@/utils/customerService').CustomerServicePublicApi
+  stellarAnalytics?: import('@/utils/analytics').AnalyticsPublicApi
   settings: {
     title: string
     description: string
@@ -120,6 +121,25 @@ interface Window {
     }
     /** 文档中心分类侧边栏样式：'list' 平铺列表 | 'nav' 上下导航式 */
     knowledge_sidebar_style?: 'list' | 'nav'
+    /** 是否要求订阅后才可查看文档；默认 false（登录即可查看） */
     knowledge_require_subscription?: boolean
+    /** 会话超时配置（单位：小时，0 = 不限制） */
+    session?: {
+      /** 空闲超时（小时），0 = 不限制 */
+      idle_hours?: number
+      /** 绝对会话上限（小时），0 = 不限制 */
+      max_hours?: number
+      /** 勾选"记住我"时的绝对超时上限（小时），未配置时与 max_hours 相同 */
+      remembered_max_hours?: number
+    }
+    /** 公告标签关键词（支持中英文），用于套餐公告列表、自动弹窗、重要高亮 */
+    notice_tags?: {
+      /** 套餐公告标签关键词，如 ['套餐', 'Plan'] */
+      plan?: string[]
+      /** 弹窗公告标签关键词，如 ['弹窗', 'Popup'] */
+      popup?: string[]
+      /** 重要公告标签关键词，如 ['重要', 'Important'] */
+      important?: string[]
+    }
   }
 }

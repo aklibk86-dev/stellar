@@ -28,7 +28,7 @@
 
           <div class="auth-mobile-brand">
             <h1 class="auth-mobile-brand-title">{{ title }}</h1>
-            <p class="auth-mobile-brand-desc">{{ description || 'Xboard is best' }}</p>
+            <p class="auth-mobile-brand-desc">{{ description || 'Stellar Panel' }}</p>
           </div>
 
           <h2 class="auth-title">{{ t('auth.registerTitle') }}</h2>

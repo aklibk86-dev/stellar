@@ -86,7 +86,7 @@ npm install
 
 ### 3. 配置开发 API
 
-在 `public/env.js` 的 `api` 配置中填写后端地址和类型。该文件是项目唯一的站点配置入口，修改后无需重新构建。
+首次部署先复制模板：`cp public/env.js.example public/env.js`（`env.js` 含真实后端地址等运营信息，**已被 git 忽略、不再进版本库**；`npm run build` 的 `prebuild` 钩子会在其缺失时自动从模板复制，全新 clone 也能构建，但值为占位，部署前必须替换）。然后在 `public/env.js` 的 `api` 配置中填写后端地址和类型。该文件是项目唯一的站点配置入口，修改后无需重新构建。
 
 ### 4. 启动开发服务器
 
@@ -208,6 +208,7 @@ window.settings = {
     static_base_urls: [],
     backend_type: 'auto',
     check_enabled: false,
+    exclude_payment_methods: [],  // 支付方式排除名单（如 ['StripeCredit']）
   },
 }
 ```
@@ -230,6 +231,9 @@ window.settings = {
 | `client_imports` | 一键导入开关及客户端 ID 白名单；`clients: []` 表示全部 |
 | `social_sharing` | 邀请分享开关、平台列表及自定义分享标题/描述 |
 | `customer_service` | Tawk、Crisp、Chatwoot、Intercom 或可信自定义客服脚本配置 |
+| `session` | 会话超时配置（小时，0=不限制）：`idle_hours` / `max_hours` / `remembered_max_hours`（"记住我"用） |
+| `notice_tags` | 公告标签关键词（中英文）：`plan` / `popup` / `important` |
+| `knowledge_require_subscription` | 是否要求订阅后才可查看文档，默认 `false`（登录即可查看） |
 
 背景地址按视口宽度自动选择：宽度不超过 `767px` 时优先使用 `mobile_url`，其余视口优先使用 `desktop_url`。对应地址为空时会回退到通用 `url`，再回退到另一端地址，因此原有只配置 `url` 的部署无需修改。
 
@@ -262,6 +266,19 @@ window.addEventListener('stellar:customer-service', (event) => {
 
 await window.stellarCustomerService?.open()
 window.stellarCustomerService?.track('order_created', { plan_id: 1 })
+```
+
+### 转化埋点事件（Analytics）
+
+前端内置极简事件总线：`track()` 会广播 `stellar:track` 事件，任意分析平台脚本监听即可接入，无需改动前端代码；同时暴露 `window.stellarAnalytics.track(...)` 公开 API。已埋点：注册成功、登录成功、创建订单、订单支付成功、续费成功、创建工单、重置流量。**不采集邮箱/token 等 PII**，只传事件名与业务 ID。
+
+```js
+window.addEventListener('stellar:track', (event) => {
+  console.log(event.detail.event, event.detail.metadata)
+})
+
+// 脚本侧也可直接调用
+window.stellarAnalytics?.track('order_payment_success', { trade_no: '20240101xxxx' })
 ```
 
 Tawk 安全模式必须在服务端使用 Property API Key 为每个用户生成 HMAC SHA256。可在应用启动前注入当前用户身份，禁止把通用 hash 或 API Key 写入静态文件：
@@ -388,10 +405,11 @@ api: {
 
 ### 根目录部署（推荐）
 
-1. 构建：`npm run build`
-2. 上传 `dist/` 到服务器
-3. 修改 `env.js`：`window.routerBase = '/'`
-4. 配置 Nginx SPA 回退：
+1. 首次部署先复制模板：`cp public/env.js.example public/env.js`，并填写真实后端地址、客服 ID 等配置
+2. 构建：`npm run build`（`env.js` 缺失时 prebuild 会自动从模板复制）
+3. 上传 `dist/` 到服务器
+4. 修改 `dist/env.js`：`window.routerBase = '/'`
+5. 配置 Nginx SPA 回退：
 
 ```nginx
 server {

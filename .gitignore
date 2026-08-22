@@ -8,6 +8,8 @@ build/
 
 # Scripts (build-time only)
 scripts/
+!scripts/generate-env.js
+!scripts/ensure-env.js
 
 # Logs
 *.log
@@ -39,3 +41,6 @@ public/env.js
 # Auto-generated declaration files
 src/auto-imports.d.ts
 src/components.d.ts
+
+# 临时 docs 目录（写入工具残留的锁定临时文件，勿提交）
+docs/

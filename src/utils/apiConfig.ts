@@ -17,6 +17,8 @@ export interface ApiRuntimeConfig {
   proxy_mode?: ApiProxyMode
   /** 后端类型：'xboard' (cedar2025/Xboard) | 'v2board' (wyx2685/v2board) | 'auto' 自动探测 */
   backend_type?: 'xboard' | 'v2board' | 'auto'
+  /** 支付方式排除名单（按 payment 标识精确匹配，如 'StripeCredit'）；默认为空 */
+  exclude_payment_methods?: string[]
 }
 
 const STORAGE_KEY = 'stellar_available_api_url'

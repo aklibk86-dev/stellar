@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/ensure-env.js",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
