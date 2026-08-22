@@ -63,7 +63,7 @@
             :aria-label="mobileMenuOpen ? t('common.closeNavigation') : t('common.openNavigation')"
             :aria-expanded="mobileMenuOpen"
             aria-controls="landing-mobile-navigation"
-            @click="mobileMenuOpen = !mobileMenuOpen"
+            @click="toggleMobileMenu"
           >
             <StellarIcon :name="mobileMenuOpen ? 'close' : 'menu'" :size="20" />
           </button>
@@ -390,6 +390,20 @@ const openFaq = ref<number | null>(0)
 const telegramGroupUrl = ref('')
 const navigationRoot = ref<HTMLElement | null>(null)
 const mobileMenuOpen = ref(false)
+// 记录最后一次点击汉堡按钮的时刻，用于忽略紧随其后的"幽灵点击"
+const lastMobileToggleAt = ref(0)
+
+/**
+ * 打开/关闭移动端导航菜单。
+ * 同时记录切换时刻：移动端浏览器在触摸点按后会额外合成一次 click
+ * （幽灵点击，目标常被解析为导航之外的元素），document 级"点击外部关闭"
+ * 监听到它会立刻把刚打开的菜单关掉，表现为"点了没反应"。
+ * 这里通过时间窗忽略切换后极短时间内的外部点击。
+ */
+const toggleMobileMenu = () => {
+  lastMobileToggleAt.value = Date.now()
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
 
 const landingHero = computed(() => window.settings?.landing_hero || {})
 const localizedHeroValue = (key: 'badge' | 'title' | 'title_suffix' | 'subtitle') => {
@@ -452,6 +466,8 @@ const handleNavigationClick = (event: MouseEvent, item: LandingNavigationItem) =
 }
 
 const closeMobileMenuOnOutsideClick = (event: MouseEvent) => {
+  // 忽略切换后极短时间内的点击（移动端触摸产生的幽灵点击），避免刚打开的菜单被立即关闭
+  if (Date.now() - lastMobileToggleAt.value < 350) return
   if (navigationRoot.value && !navigationRoot.value.contains(event.target as Node)) {
     mobileMenuOpen.value = false
   }
