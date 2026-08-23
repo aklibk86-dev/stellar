@@ -84,8 +84,8 @@
         <h1 class="article-title">{{ doc.title }}</h1>
       </header>
 
-      <!-- 文章正文 -->
-      <div class="prose" v-html="renderContent(doc.body)"></div>
+      <!-- 文章正文（正文中的 <stellar-import> 标记会在渲染后被替换为一键导入组件） -->
+      <div ref="articleRef" class="prose" v-html="renderContent(doc.body)"></div>
 
       <!-- 底部翻页 -->
       <footer class="article-footer">
@@ -119,24 +119,30 @@
         </button>
       </footer>
     </article>
+
+    <!-- 正文内嵌"一键导入"标记触发的导入弹窗（复用仪表盘同款，30+ 客户端 + 二维码） -->
+    <SubscribeImportModal v-model:show="showImportModal" :subscribe-url="subscribeUrl" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NTag, useDialog } from 'naive-ui'
+import { NTag, useDialog, useMessage } from 'naive-ui'
 import { userApi } from '@/api'
 import { useUserStore } from '@/stores/user'
-import type { Knowledge, KnowledgeCategory } from '@/api/types'
+import type { Knowledge, KnowledgeCategory, Subscribe } from '@/api/types'
 import { formatDate } from '@/utils/format'
 import { renderContent } from '@/utils/safe'
+import { STELLAR_IMPORT_TAG } from '@/utils/sanitize'
+import SubscribeImportModal from '@/components/SubscribeImportModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const dialog = useDialog()
+const message = useMessage()
 
 const allDocs = ref<Knowledge[]>([])
 const categories = ref<KnowledgeCategory[]>([])
@@ -188,6 +194,144 @@ const getCategoryName = (category: string): string => {
   const cat = categories.value.find(c => c.category === category)
   return cat?.name || category
 }
+
+// ===== 正文内嵌"一键导入"标记 =====
+// 写文档时在正文任意位置放 <stellar-import></stellar-import>，
+// 渲染后自动替换为"一键导入订阅"组件，点击弹出 SubscribeImportModal。
+const articleRef = ref<HTMLElement | null>(null)
+const showImportModal = ref(false)
+const subscribe = ref<Subscribe | null>(null)
+const subscribeUrl = computed(() => subscribe.value?.subscribe_url || '')
+const MARKER_OPEN = `<${STELLAR_IMPORT_TAG}>`
+const MARKER_CLOSE = `</${STELLAR_IMPORT_TAG}>`
+
+// 获取用户订阅信息（用于拼接导入弹窗的订阅地址）
+const fetchSubscribe = async () => {
+  try {
+    const res = await userApi.getSubscribe()
+    subscribe.value = res.data
+  } catch (e: any) {
+    // 静默失败：不影响文档阅读，仅导入按钮在无订阅地址时引导购买
+    console.warn('[KnowledgeDetail] 获取订阅信息失败:', e?.status || e?.message)
+    subscribe.value = null
+  }
+}
+
+// 一键导入按钮点击：有订阅地址 → 打开导入弹窗；否则引导购买套餐
+const handleImportClick = () => {
+  if (!subscribeUrl.value) {
+    if (!hasSubscription.value) {
+      showSubscriptionDialog()
+    } else {
+      message.warning(t('knowledge.importFailedTip'))
+    }
+    return
+  }
+  showImportModal.value = true
+}
+
+// 构建替换 <stellar-import> 的组件 HTML（文案为 i18n 静态字符串，安全）
+const buildImportWidgetHtml = (): string => `
+  <span class="sii-icon">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+  </span>
+  <span class="sii-copy">
+    <strong class="sii-title">${t('knowledge.oneClickImport')}</strong>
+    <span class="sii-desc">${t('knowledge.oneClickImportDesc')}</span>
+  </span>
+  <button type="button" class="sii-btn">${t('knowledge.oneClickImportAction')}</button>
+`
+
+// 创建导入组件 DOM（样式由 .prose :deep(.stellar-import-widget) 控制）
+const createImportWidget = (): HTMLDivElement => {
+  const host = document.createElement('div')
+  host.className = 'stellar-import-widget'
+  host.innerHTML = buildImportWidgetHtml()
+  host.querySelector('button')?.addEventListener('click', handleImportClick)
+  return host
+}
+
+// 把正文中的 <stellar-import> 标记逐个替换为导入组件。
+// 兼容两种后端存储形态：
+// 1) 标记以真实元素到达（内容未转义）→ querySelectorAll 直接替换；
+// 2) 标记被后端 HTML 转义为纯文本（&lt;stellar-import&gt;…）→ 扫描文本节点替换。
+// 文本替换会拆分出新的尾段文本节点（可能仍含标记），因此循环重扫直到没有标记为止；
+// 每次循环至少消耗一个标记、不产生新标记，必然收敛（guard 防呆）。
+const enhanceImportWidgets = () => {
+  const article = articleRef.value
+  if (!article) return
+  let guard = 0
+  let needsRescan = true
+  while (needsRescan && guard++ < 8) {
+    needsRescan = false
+    // 1) 真实元素标记（一次处理全部）
+    article.querySelectorAll(STELLAR_IMPORT_TAG).forEach((marker) => {
+      marker.replaceWith(createImportWidget())
+    })
+    // 2) 文本标记（转义形态：渲染后是字面 <stellar-import>…</stellar-import>，
+    //    一次处理全部；拆分出的 tail 若仍含标记则下一轮重扫）
+    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+    const textNodes: Text[] = []
+    while (walker.nextNode()) textNodes.push(walker.currentNode as Text)
+    let splitTail = false
+    for (const node of textNodes) {
+      const open = node.data.indexOf(MARKER_OPEN)
+      if (open === -1) continue
+      const close = node.data.indexOf(MARKER_CLOSE, open + MARKER_OPEN.length)
+      if (close === -1) continue
+      const before = node.data.slice(0, open)
+      const tail = node.data.slice(close + MARKER_CLOSE.length)
+      const parent = node.parentNode
+      if (!parent) continue
+      const frag = document.createDocumentFragment()
+      if (before) frag.appendChild(document.createTextNode(before))
+      frag.appendChild(createImportWidget())
+      if (tail) frag.appendChild(document.createTextNode(tail))
+      parent.replaceChild(frag, node)
+      if (tail) splitTail = true
+    }
+    needsRescan = splitTail
+  }
+}
+
+// MutationObserver 兜底：v-html 重渲染、路由复用等任何时序差异都会触发重新增强。
+// 幂等：正文没有标记时不做任何 DOM 修改，不会死循环。
+let articleObserver: MutationObserver | null = null
+const attachArticleObserver = () => {
+  articleObserver?.disconnect()
+  articleObserver = null
+  const article = articleRef.value
+  if (!article) return
+  articleObserver = new MutationObserver(() => enhanceImportWidgets())
+  articleObserver.observe(article, { childList: true, subtree: true })
+}
+
+// 文章元素真正挂载时（ref 从 null → 元素）注入组件并挂上观察者。
+// 关键：页面加载期间 subscriptionLoading 先为 true，文章要到最后才渲染，
+// 仅监听 doc.body 会在文章尚未存在时提前空跑、且观察者挂不上去，
+// 导致文章渲染出来后没有任何触发点（表现为：标记留在 DOM、组件永远不出现）。
+watch(articleRef, (article, prev) => {
+  if (prev && prev !== article) articleObserver?.disconnect()
+  if (article) {
+    void nextTick(() => {
+      enhanceImportWidgets()
+      attachArticleObserver()
+    })
+  }
+})
+
+// v-html 重渲染 / 语言切换 / 文档切换后重新注入组件
+watch(() => doc.value?.body, () => {
+  void nextTick(() => {
+    enhanceImportWidgets()
+    attachArticleObserver()
+  })
+})
+watch(() => locale.value, () => void nextTick(enhanceImportWidgets))
+watch(() => route.params.id, () => void nextTick(enhanceImportWidgets))
+onBeforeUnmount(() => articleObserver?.disconnect())
 
 // 加载所有文档(API 无单文档接口,从列表接口筛选)
 const fetchAll = async () => {
@@ -265,8 +409,11 @@ watch(() => route.params.id, (newId) => {
 onMounted(async () => {
   try {
     await userStore.fetchUser(true)
-    if (canViewKnowledge.value) await fetchAll()
-    else showSubscriptionDialog()
+    if (canViewKnowledge.value) {
+      await Promise.all([fetchAll(), fetchSubscribe()])
+    } else {
+      showSubscriptionDialog()
+    }
   } finally {
     subscriptionLoading.value = false
     if (!hasSubscription.value) loading.value = false
@@ -587,6 +734,69 @@ onMounted(async () => {
   color: var(--stellar-text);
 }
 
+/* 正文内嵌"一键导入"组件（替换 <stellar-import> 标记生成） */
+.prose :deep(.stellar-import-widget) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--stellar-primary) 32%, var(--stellar-border));
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--stellar-primary-light) 0%, var(--stellar-bg-card) 70%);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+.prose :deep(.sii-icon) {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--stellar-primary);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--stellar-primary) 26%, transparent);
+}
+.prose :deep(.sii-copy) {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.prose :deep(.sii-title) {
+  color: var(--stellar-text);
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.prose :deep(.sii-desc) {
+  color: var(--stellar-text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.prose :deep(.sii-btn) {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--stellar-primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.prose :deep(.sii-btn:hover) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.prose :deep(.sii-btn:focus-visible) {
+  outline: 2px solid var(--stellar-primary);
+  outline-offset: 2px;
+}
+
 /* 底部翻页 */
 .article-footer {
   display: flex;
@@ -686,6 +896,24 @@ onMounted(async () => {
   .footer-nav--next {
     text-align: left;
     justify-content: flex-start;
+  }
+
+  /* 移动端: 一键导入组件垂直堆叠 */
+  .prose :deep(.stellar-import-widget) {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 14px;
+  }
+  .prose :deep(.sii-icon) {
+    margin: 0 auto;
+  }
+  .prose :deep(.sii-desc) {
+    padding: 0 4px;
+  }
+  .prose :deep(.sii-btn) {
+    width: 100%;
+    margin-top: 4px;
   }
 }
 </style>
