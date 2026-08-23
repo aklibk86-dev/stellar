@@ -208,9 +208,11 @@ const allClients = computed<Client[]>(() => [
   { id: 'ios-quantumultx', name: 'Quantumult X', platform: 'ios', logo: logoPath('ios', 'quantumultx.png'), buildUrl: quantumultXUrl },
   { id: 'ios-hiddify', name: 'Hiddify', platform: 'ios', logo: logoPath('macos', 'hiddify.png'), buildUrl: hiddifyUrl },
   { id: 'ios-singbox', name: 'Sing-box', platform: 'ios', logo: logoPath('ios', 'singbox.png'), buildUrl: singBoxUrl },
+  { id: 'ios-clashplus', name: 'Clash Plus', platform: 'ios', logo: logoPath('windows', 'clashplus.png'), buildUrl: clashUrl },
   { id: 'ios-loon', name: 'Loon', platform: 'ios', logo: logoPath('ios', 'loon.png'), buildUrl: () => `loon://import?nodelist=${encodedUrl.value}&name=${encodedName.value}` },
 
   { id: 'android-flclash', name: 'FlClash', platform: 'android', logo: logoPath('windows', 'flclash.png'), buildUrl: clashUrl },
+  { id: 'android-clashplus', name: 'Clash Plus', platform: 'android', logo: logoPath('windows', 'clashplus.png'), buildUrl: clashUrl },
   { id: 'android-v2rayng', name: 'V2rayNG', platform: 'android', logo: logoPath('android', 'v2rayng.png'), buildUrl: () => `v2rayng://install-sub?url=${encodedUrl.value}#${encodedName.value}` },
   { id: 'android-clash', name: 'Clash', platform: 'android', logo: logoPath('android', 'clash.png'), buildUrl: clashUrl },
   { id: 'android-surfboard', name: 'Surfboard', platform: 'android', logo: logoPath('android', 'surfboard.png'), buildUrl: () => `surfboard:///install-config?url=${encodedUrl.value}&name=${encodedName.value}` },
@@ -220,6 +222,7 @@ const allClients = computed<Client[]>(() => [
   { id: 'android-hiddify', name: 'Hiddify', platform: 'android', logo: logoPath('android', 'hiddify.png'), buildUrl: hiddifyUrl },
 
   { id: 'windows-flclash', name: 'FlClash', platform: 'windows', logo: logoPath('windows', 'flclash.png'), buildUrl: clashUrl },
+  { id: 'windows-clashplus', name: 'Clash Plus', platform: 'windows', logo: logoPath('windows', 'clashplus.png'), buildUrl: clashUrl },
   { id: 'windows-clashverge', name: 'Clash Verge', platform: 'windows', logo: logoPath('windows', 'clashverge.png'), buildUrl: clashUrl },
   { id: 'windows-clash', name: 'Clash', platform: 'windows', logo: logoPath('windows', 'clash.png'), buildUrl: clashUrl },
   { id: 'windows-nekoray', name: 'NekoRay', platform: 'windows', logo: logoPath('windows', 'nekoray.png'), buildUrl: clashUrl },
@@ -227,6 +230,7 @@ const allClients = computed<Client[]>(() => [
   { id: 'windows-hiddify', name: 'Hiddify', platform: 'windows', logo: logoPath('windows', 'hiddify.png'), buildUrl: hiddifyUrl },
 
   { id: 'mac-flclash', name: 'FlClash', platform: 'mac', logo: logoPath('windows', 'flclash.png'), buildUrl: clashUrl },
+  { id: 'mac-clashplus', name: 'Clash Plus', platform: 'mac', logo: logoPath('windows', 'clashplus.png'), buildUrl: clashUrl },
   { id: 'mac-clashverge', name: 'Clash Verge', platform: 'mac', logo: logoPath('windows', 'clashverge.png'), buildUrl: clashUrl },
   { id: 'mac-clashx', name: 'ClashX', platform: 'mac', logo: logoPath('macos', 'clashx.png'), buildUrl: clashUrl },
   { id: 'mac-clashmetax', name: 'ClashX Meta', platform: 'mac', logo: logoPath('macos', 'clashmetax.png'), buildUrl: clashUrl },
