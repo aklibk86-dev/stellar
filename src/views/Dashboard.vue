@@ -24,26 +24,6 @@
       </div>
     </div>
 
-    <!-- 首次使用引导（有订阅但从未打开过一键导入的新用户） -->
-    <div v-if="showOnboarding" class="onboarding-banner">
-      <div class="onboarding-text">
-        <span class="onboarding-title">{{ t('dashboard.onboardingTitle') }}</span>
-        <span class="onboarding-desc">{{ t('dashboard.onboardingDesc') }}</span>
-        <div class="onboarding-steps">
-          <span class="onboarding-step" @click="onboardingStep1">{{ t('dashboard.onboardingStep1') }}</span>
-          <span class="onboarding-arrow">→</span>
-          <span class="onboarding-step" @click="onboardingStep2">{{ t('dashboard.onboardingStep2') }}</span>
-          <span class="onboarding-arrow">→</span>
-          <span class="onboarding-step" @click="onboardingStep3">{{ t('dashboard.onboardingStep3') }}</span>
-        </div>
-      </div>
-      <div class="onboarding-actions">
-        <n-button size="tiny" quaternary @click="dismissOnboarding(true)">{{ t('dashboard.onboardingDontShow') }}</n-button>
-        <n-button size="tiny" quaternary @click="dismissOnboarding(false)">{{ t('dashboard.onboardingSkip') }}</n-button>
-        <n-button size="tiny" type="primary" @click="onboardingStep3">{{ t('dashboard.onboardingStep3') }}</n-button>
-      </div>
-    </div>
-
     <!-- 统计卡片 -->
     <div class="stats-grid">
       <div class="stat-card" @click="$router.push('/plans')">
@@ -449,7 +429,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NProgress, NSkeleton, useDialog } from 'naive-ui'
@@ -908,52 +888,10 @@ const copySubscribeUrl = async () => {
   }
 }
 
-// ===== 首次使用引导（T-12） =====
-const ONBOARDING_SEEN_KEY = 'stellar_onboarding_seen'
-const ONBOARDING_SESSION_KEY = 'stellar_onboarding_skipped_session'
-const showOnboarding = ref(false)
-
-const maybeShowOnboarding = () => {
-  if (!hasSubscription.value) return
-  if (localStorage.getItem(ONBOARDING_SEEN_KEY)) return
-  if (sessionStorage.getItem(ONBOARDING_SESSION_KEY)) return
-  showOnboarding.value = true
-}
-
-const dismissOnboarding = (permanent: boolean) => {
-  showOnboarding.value = false
-  if (permanent) {
-    localStorage.setItem(ONBOARDING_SEEN_KEY, '1')
-    sessionStorage.removeItem(ONBOARDING_SESSION_KEY)
-  } else {
-    sessionStorage.setItem(ONBOARDING_SESSION_KEY, '1')
-  }
-}
-
-const onboardingStep1 = async () => {
-  await copySubscribeUrl()
-}
-
-const onboardingStep2 = () => {
-  const el = document.querySelector('.client-download-card')
-  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
-const onboardingStep3 = () => {
-  // 打开一键导入弹窗即视为完成引导，之后不再打扰
-  dismissOnboarding(true)
-  showSubscribeModal.value = true
-}
-
-// 用户通过任何入口打开一键导入弹窗后，不再展示引导
-watch(showSubscribeModal, (visible) => {
-  if (visible && showOnboarding.value) dismissOnboarding(true)
-})
-
 let secondaryLoadTimer: number | null = null
 
 onMounted(() => {
-  void fetchData().then(() => maybeShowOnboarding())
+  void fetchData()
   secondaryLoadTimer = window.setTimeout(() => {
     void fetchTrafficHeatmap()
     void fetchRecentOrders()
@@ -1139,17 +1077,6 @@ onBeforeUnmount(() => {
 /* 列表加载失败态（区分"接口失败"与"暂无数据"） */
 .list-error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 28px 20px; flex: 1; color: var(--stellar-text-muted); }
 .list-error p { font-size: 13px; margin: 0; font-weight: 500; color: #ef4444; }
-
-/* 首次使用引导横幅 */
-.onboarding-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 20px; border-radius: 12px; background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.10)); border: 1px solid rgba(59,130,246,0.25); }
-.onboarding-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.onboarding-title { font-size: 14px; font-weight: 700; color: var(--stellar-text); }
-.onboarding-desc { font-size: 12px; color: var(--stellar-text-muted); }
-.onboarding-steps { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
-.onboarding-step { font-size: 12px; font-weight: 600; color: var(--stellar-primary); cursor: pointer; padding: 4px 10px; border-radius: 8px; background: var(--stellar-bg-card); border: 1px solid var(--stellar-border-light); transition: all 0.2s; }
-.onboarding-step:hover { border-color: var(--stellar-primary); }
-.onboarding-arrow { font-size: 12px; color: var(--stellar-text-muted); }
-.onboarding-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .loading-dot { width: 14px; height: 14px; border: 2px solid var(--stellar-border); border-top-color: var(--stellar-primary); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
 .loading-dot.small { width: 12px; height: 12px; border-width: 1.5px; }
