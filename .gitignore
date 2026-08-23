@@ -7,7 +7,8 @@ build/
 *.tsbuildinfo
 
 # Scripts (build-time only)
-scripts/
+# 注意：不能写 scripts/（会连目录一起排除，导致下方 ! 例外永不生效）
+scripts/*
 !scripts/generate-env.js
 !scripts/ensure-env.js
 
