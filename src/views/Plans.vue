@@ -138,7 +138,7 @@
           <span v-for="tag in getNoticeTags(selectedNotice)" :key="tag" class="notice-tag" :class="getNoticeTagClass(tag)">{{ tag }}</span>
         </div>
         <img v-if="selectedNotice.img_url" class="notice-image" :src="selectedNotice.img_url" :alt="selectedNotice.title" />
-        <div class="notice-body" v-html="sanitizeHtml(selectedNotice.content)"></div>
+        <div class="notice-body" v-html="renderContent(selectedNotice.content)"></div>
       </div>
       <template #footer>
         <div class="notice-modal-footer">
@@ -184,7 +184,7 @@ import { userApi } from '@/api'
 import type { Plan, Notice } from '@/api/types'
 import { formatPrice, formatDate } from '@/utils/format'
 import { getPlanStockBadgeInfo, isPlanSoldOut } from '@/utils/plan'
-import { sanitizeHtml, renderRichContent } from '@/utils/safe'
+import { renderContent, renderRichContent } from '@/utils/safe'
 
 const router = useRouter()
 const { t } = useI18n()

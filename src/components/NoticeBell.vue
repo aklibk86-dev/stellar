@@ -80,7 +80,7 @@
           <span v-for="tag in getNoticeTags(selectedNotice)" :key="tag" class="notice-tag">{{ tag }}</span>
         </div>
         <img v-if="selectedNotice.img_url" class="notice-image" :src="selectedNotice.img_url" :alt="selectedNotice.title" />
-        <div class="notice-body" v-html="sanitizeHtml(selectedNotice.content)"></div>
+        <div class="notice-body" v-html="renderContent(selectedNotice.content)"></div>
       </div>
       <template v-if="selectedNotice && isPopupNotice(selectedNotice)" #footer>
         <div class="notice-modal-footer">
@@ -99,7 +99,7 @@ import { NModal, NButton, NCheckbox } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Notice } from '@/api/types'
 import { formatDate } from '@/utils/format'
-import { sanitizeHtml } from '@/utils/sanitize'
+import { renderContent } from '@/utils/safe'
 
 const { t } = useI18n()
 
@@ -535,29 +535,29 @@ onUnmounted(() => {
 .notice-body {
   font-size: 14px;
   color: var(--stellar-text);
-  line-height: 1.6;
+  line-height: 1.7;
   /* 防止长 URL、图片、表格等内容溢出屏幕 */
   overflow-wrap: break-word;
   word-break: break-word;
   overflow-x: hidden;
 }
 
-.notice-body :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-}
-
-.notice-body :deep(pre) {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-.notice-body :deep(table) {
-  display: block;
-  overflow-x: auto;
-  max-width: 100%;
-}
+.notice-body :deep(h1) { font-size: 20px; font-weight: 700; margin: 16px 0 10px; }
+.notice-body :deep(h2) { font-size: 17px; font-weight: 700; margin: 14px 0 8px; }
+.notice-body :deep(h3) { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+.notice-body :deep(p) { margin: 0 0 12px; }
+.notice-body :deep(a) { color: var(--stellar-primary); text-decoration: none; }
+.notice-body :deep(a:hover) { text-decoration: underline; }
+.notice-body :deep(ul), .notice-body :deep(ol) { margin: 0 0 12px; padding-left: 24px; }
+.notice-body :deep(li) { margin: 4px 0; }
+.notice-body :deep(code) { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; padding: 2px 6px; border-radius: 4px; background: var(--stellar-bg-hover); color: var(--stellar-accent); }
+.notice-body :deep(pre) { padding: 14px; border-radius: 8px; background: var(--stellar-bg); border: 1px solid var(--stellar-border); overflow-x: auto; margin: 0 0 12px; }
+.notice-body :deep(pre code) { padding: 0; background: transparent; }
+.notice-body :deep(blockquote) { margin: 0 0 12px; padding: 10px 16px; border-left: 3px solid var(--stellar-primary); background: var(--stellar-bg-hover); border-radius: 0 8px 8px 0; }
+.notice-body :deep(img) { max-width: 100%; border-radius: 8px; }
+.notice-body :deep(table) { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
+.notice-body :deep(th), .notice-body :deep(td) { padding: 8px 12px; border: 1px solid var(--stellar-border); text-align: left; }
+.notice-body :deep(th) { background: var(--stellar-bg-hover); font-weight: 600; }
 
 .notice-modal-footer {
   display: flex;
