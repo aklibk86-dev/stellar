@@ -1,6 +1,6 @@
 <template>
   <Transition name="slide-down">
-    <div v-if="visible && pendingOrders.length > 0" class="pending-banner">
+    <div v-if="visible && displayOrders.length > 0" class="pending-banner">
       <div class="banner-inner">
         <!-- 图标 -->
         <div class="banner-icon">
@@ -13,13 +13,13 @@
 
         <!-- 内容 -->
         <div class="banner-content">
-          <span class="banner-title">{{ t('order.pendingOrder', { count: pendingOrders.length }) }}</span>
-          <span v-if="pendingOrders.length === 1" class="banner-detail">
-            {{ t('order.pendingOrderHint', { tradeNo: pendingOrders[0].trade_no, amount: formatPrice(pendingOrders[0].total_amount) }) }}
+          <span class="banner-title">{{ t('order.pendingOrder', { count: displayOrders.length }) }}</span>
+          <span v-if="displayOrders.length === 1" class="banner-detail">
+            {{ t('order.pendingOrderHint', { tradeNo: displayOrders[0].trade_no, amount: formatPrice(displayOrders[0].total_amount) }) }}
           </span>
           <span v-else class="banner-detail">
-            {{ t('order.pendingOrderHint', { tradeNo: pendingOrders[0].trade_no, amount: formatPrice(pendingOrders[0].total_amount) }) }}
-            <span v-if="pendingOrders.length > 1" class="more-count">+{{ pendingOrders.length - 1 }}</span>
+            {{ t('order.pendingOrderHint', { tradeNo: displayOrders[0].trade_no, amount: formatPrice(displayOrders[0].total_amount) }) }}
+            <span v-if="displayOrders.length > 1" class="more-count">+{{ displayOrders.length - 1 }}</span>
           </span>
         </div>
 
@@ -28,7 +28,7 @@
           <button class="banner-btn primary" @click="goToOrders">
             {{ t('order.payNow') }}
           </button>
-          <button v-if="pendingOrders.length === 1" class="banner-btn danger" :disabled="cancelling" @click="cancelOrder(pendingOrders[0])">
+          <button v-if="displayOrders.length === 1" class="banner-btn danger" :disabled="cancelling" @click="cancelOrder(displayOrders[0])">
             {{ t('order.cancelOrder') }}
           </button>
           <button v-else class="banner-btn danger" :disabled="cancelling" @click="cancelAll">
@@ -47,20 +47,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 import { userApi, normalizeListData } from '@/api'
 import { formatPrice } from '@/utils/format'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const message = useMessage()
 
 const visible = ref(true)
 const cancelling = ref(false)
 const pendingOrders = ref<any[]>([])
+
+// 确认订单页正在查看/支付的订单号（路由 trade_no 参数）：
+// 与该订单号一致的待支付订单不再展示顶部横幅提示，避免重复打扰
+const viewingTradeNo = computed(() => {
+  if (route.name !== 'checkout') return ''
+  const value = route.query.trade_no
+  return Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
+})
+const displayOrders = computed(() => {
+  const tradeNo = viewingTradeNo.value
+  if (!tradeNo) return pendingOrders.value
+  return pendingOrders.value.filter(o => String(o.trade_no) !== tradeNo)
+})
 let timer: ReturnType<typeof setInterval> | null = null
 // 用于在组件卸载时取消进行中的请求,避免页面切换时 net::ERR_ABORTED 错误
 let abortController: AbortController | null = null
@@ -109,14 +123,16 @@ const cancelOrder = async (order: any) => {
 const cancelAll = async () => {
   cancelling.value = true
   try {
-    for (const order of [...pendingOrders.value]) {
+    const targets = [...displayOrders.value]
+    for (const order of targets) {
       try {
         await userApi.orderCancel(order.trade_no)
       } catch (err: any) {
         console.warn('[PendingOrderBanner] 取消订单失败:', err?.status || err?.message)
       }
     }
-    pendingOrders.value = []
+    const cancelledNos = new Set(targets.map(o => String(o.trade_no)))
+    pendingOrders.value = pendingOrders.value.filter(o => !cancelledNos.has(String(o.trade_no)))
     visible.value = false
     message.success(t('order.cancelSuccess'))
   } catch {
