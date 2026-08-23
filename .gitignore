@@ -44,3 +44,6 @@ src/components.d.ts
 
 # 临时 docs 目录（写入工具残留的锁定临时文件，勿提交）
 docs/
+
+# 内部文档目录（含部署/运营内部资料，不对外提交）
+/documentation/
