@@ -257,7 +257,7 @@ customer_service: {
 }
 ```
 
-Tawk 会自动同步当前登录用户的 UUID、邮箱、头像和套餐 ID，并转发 `onStatusChange`、`onChatStarted`、`onChatEnded`、`onOfflineSubmit` 等官方回调。页面可监听统一事件：
+Tawk 会自动同步当前登录用户的 UUID、邮箱、头像以及账户资料（注册/登录时间、封禁状态、TG 绑定、余额、佣金余额、套餐、流量使用/总量、到期时间、设备限制、限速、流量重置日等白名单字段），并转发 `onStatusChange`、`onChatStarted`、`onChatEnded`、`onOfflineSubmit` 等官方回调。页面可监听统一事件：
 
 ```js
 window.addEventListener('stellar:customer-service', (event) => {
@@ -289,8 +289,12 @@ window.customerServiceIdentity = {
   hash: 'SERVER_GENERATED_TAWK_HASH',
   name: 'Current User',
   email: 'user@example.com',
+  // 服务端渲染时注入访客真实 IP（白名单字段，会同步给客服平台）
+  attributes: { ip: 'SERVER_SIDE_VISITOR_IP' },
 }
 ```
+
+客服平台自带的「访客 IP」字段来自浏览器与客服平台的直连，访客挂 VPN/代理时显示的是出口 IP，前端无法改写。可在服务端渲染页面时把访客真实 IP 写入 `window.customerServiceIdentity.attributes.ip`，前端会将其作为白名单属性同步给客服平台，客服在访客自定义属性中即可看到准确 IP（未注入该字段时不发送任何 IP 数据）。
 
 其他客服平台示例：
 

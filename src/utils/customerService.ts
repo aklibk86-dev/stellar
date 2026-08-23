@@ -75,16 +75,36 @@ const safeCallback = (provider: CustomerServiceProvider, action: string) => (err
   if (error) emit(provider, 'error', { action, error })
 }
 
+// 仅允许以下白名单字段透传给第三方客服平台，防止 token / 订阅链接等敏感信息外泄。
+// ip 用于接收服务端注入的访客真实 IP（window.customerServiceIdentity.attributes.ip），
+// 以纠正客服平台因访客挂 VPN/代理而误判的出口 IP。
 const customerProfileAttributeKeys = [
   'email',
+  'ip',
+  'user_id',
   'registered_at',
+  'last_login_at',
+  'account_status',
+  'telegram',
+  'balance',
+  'commission_balance',
+  'discount',
+  'commission_rate',
+  'plan_id',
   'plan_name',
   'expired_at',
   'used_traffic',
   'total_traffic',
+  'device_limit',
+  'speed_limit',
+  'next_reset_at',
+  'reset_day',
+  'online_devices',
+  'reset_allowed',
+  'auto_renewal',
 ] as const
 
-// Keep every provider on the same minimal customer profile payload.
+// Keep every provider on the same customer profile payload.
 const normalizeAttributes = (
   config: CustomerServiceConfig,
   visitor?: CustomerServiceVisitor,
@@ -464,6 +484,7 @@ const createIntercomAdapter = (config: CustomerServiceConfig): CustomerServiceCo
     ...(visitor?.id ? { user_id: visitor.id } : {}),
     ...(visitor?.email ? { email: visitor.email } : {}),
     ...(visitor?.name ? { name: visitor.name } : {}),
+    ...(visitor?.avatar ? { avatar: visitor.avatar } : {}),
     ...normalizeAttributes(config, visitor),
   })
 

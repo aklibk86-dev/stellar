@@ -4,7 +4,8 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { userApi } from '@/api'
 import type { Subscribe } from '@/api/types'
-import { formatTraffic, formatDate } from '@/utils/format'
+import { formatTraffic, formatDate, formatMoney } from '@/utils/format'
+import { resolveAvatarUrl } from '@/utils/avatar'
 import {
   createCustomerService,
   matchesCustomerServiceRoute,
@@ -70,20 +71,56 @@ const visitor = computed<CustomerServiceVisitor | undefined>(() => {
   if (!user && !runtimeIdentity) return undefined
 
   const email = runtimeIdentity?.email || user?.email || ''
+  const sub = subscribe.value
   const attributes: Record<string, string | number | boolean> = {
     email,
+    // 服务端注入的运行时身份属性（最终仍受白名单过滤）
+    ...(runtimeIdentity?.attributes || {}),
   }
-  if (user?.created_at) attributes.registered_at = formatDate(user.created_at)
+
+  if (user) {
+    if (user.uuid) attributes.user_id = user.uuid
+    attributes.balance = formatMoney(user.balance)
+    attributes.commission_balance = formatMoney(user.commission_balance)
+    attributes.account_status = user.banned ? '已封禁' : '正常'
+    attributes.telegram = user.telegram_id ? '已绑定' : '未绑定'
+    if (user.created_at) attributes.registered_at = formatDate(user.created_at)
+    if (user.last_login_at) attributes.last_login_at = formatDate(user.last_login_at)
+    if (user.plan_id !== null && user.plan_id !== undefined) attributes.plan_id = user.plan_id
+    if (user.discount !== null && user.discount !== undefined) attributes.discount = user.discount
+    if (user.commission_rate !== null && user.commission_rate !== undefined) {
+      attributes.commission_rate = user.commission_rate
+    }
+    if (user.auto_renewal !== undefined) attributes.auto_renewal = user.auto_renewal ? '是' : '否'
+    if (user.device_limit !== null && user.device_limit !== undefined) {
+      attributes.device_limit = user.device_limit
+    }
+  }
+
   if (planName.value) attributes.plan_name = planName.value
-  if (user || subscribe.value) attributes.expired_at = expireText.value
-  if (subscribe.value) {
+  if (sub?.plan_id !== null && sub?.plan_id !== undefined) attributes.plan_id = sub.plan_id
+  if (user || sub) attributes.expired_at = expireText.value
+  if (sub) {
     attributes.used_traffic = usedTraffic.value
     attributes.total_traffic = totalTraffic.value
+    if (sub.device_limit !== null && sub.device_limit !== undefined) {
+      attributes.device_limit = sub.device_limit
+    }
+    if (sub.speed_limit !== null && sub.speed_limit !== undefined) {
+      attributes.speed_limit = sub.speed_limit > 0 ? `${sub.speed_limit} Mbps` : '不限速'
+    }
+    if (sub.next_reset_at) attributes.next_reset_at = formatDate(sub.next_reset_at)
+    if (sub.reset_day !== null && sub.reset_day !== undefined) attributes.reset_day = sub.reset_day
+    if (sub.alive_ip !== null && sub.alive_ip !== undefined) attributes.online_devices = sub.alive_ip
+    if (sub.allow_new_period !== undefined) attributes.reset_allowed = sub.allow_new_period ? '是' : '否'
   }
+
   return {
     id: runtimeIdentity?.user_id || user?.uuid || email,
     hash: runtimeIdentity?.hash || config.tawk_secure_hash,
+    name: runtimeIdentity?.name || (user?.email ? user.email.split('@')[0] : undefined),
     email,
+    avatar: runtimeIdentity?.avatar || resolveAvatarUrl(user) || undefined,
     attributes,
   }
 })
