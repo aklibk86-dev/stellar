@@ -77,6 +77,8 @@ export interface BackendCapabilities {
   advancedCaptcha: boolean
   /** 线路接口使用 API Resource 转换字段（Xboard 风格） */
   nodeResource: boolean
+  /** 套餐 capacity_limit 表示剩余库存（v2board 后端已减去在用人数）而非库存上限（xboard 返回上限） */
+  planStockRemaining: boolean
 }
 
 const XBOARD_CAPS: BackendCapabilities = {
@@ -92,6 +94,7 @@ const XBOARD_CAPS: BackendCapabilities = {
   userDeviceLimit: false,
   advancedCaptcha: true,
   nodeResource: true,
+  planStockRemaining: false,
 }
 
 const V2BOARD_CAPS: BackendCapabilities = {
@@ -107,6 +110,7 @@ const V2BOARD_CAPS: BackendCapabilities = {
   userDeviceLimit: true,
   advancedCaptcha: false,
   nodeResource: false,
+  planStockRemaining: true,
 }
 
 export function getBackendCapabilities(): BackendCapabilities {

@@ -71,7 +71,14 @@ export interface Plan {
   three_year_price: number | null
   onetime_price: number | null
   reset_price: number | null
-  capacity_limit: number | null
+  // 库存/订阅人数上限（Xboard capacity_limit）：
+  // null = 不限量；正整数 = 上限；0 或后端本地化的 "Sold out"/"已售罄" 字符串 = 已售罄
+  // 语义随后端不同：Xboard 返回上限（总数），v2board 返回剩余库存
+  capacity_limit: number | string | null
+  // 后端库存补丁新增字段（可选，未打补丁时不存在）：
+  // capacity_total = 库存总数；capacity_remaining = 剩余库存（0/"Sold out" = 售罄，null = 不限量）
+  capacity_total?: number | string | null
+  capacity_remaining?: number | string | null
   transfer_enable: number
   speed_limit: number | null
   device_limit: number | null

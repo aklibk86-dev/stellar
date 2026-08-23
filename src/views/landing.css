@@ -702,6 +702,24 @@
 .landing-page:not(.dark) .plan-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
 .plan-card:hover { border-color: rgba(59,130,246,0.3); transform: translateY(-3px); }
 .plan-name { font-size: 20px; font-weight: 700; margin: 0; }
+.plan-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.plan-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.plan-stock-badge.is-sold-out { background: rgba(239, 68, 68, 0.16); color: #f87171; border-color: rgba(239, 68, 68, 0.35); }
+.landing-page:not(.dark) .plan-stock-badge { background: rgba(245, 158, 11, 0.12); color: #b45309; border-color: rgba(245, 158, 11, 0.35); }
+.landing-page:not(.dark) .plan-stock-badge.is-sold-out { background: rgba(239, 68, 68, 0.12); color: #dc2626; border-color: rgba(239, 68, 68, 0.35); }
+.plan-btn.is-sold-out { opacity: 0.55; cursor: not-allowed; }
+.plan-btn.is-sold-out:hover { background: transparent; }
 .plan-price { display: flex; align-items: baseline; gap: 2px; }
 .price-currency { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.5); }
 .landing-page:not(.dark) .price-currency { color: rgba(0,0,0,0.5); }

@@ -272,7 +272,16 @@
             :key="plan.id"
             class="plan-card"
           >
-            <h3 class="plan-name">{{ plan.name }}</h3>
+            <div class="plan-name-row">
+              <h3 class="plan-name">{{ plan.name }}</h3>
+              <span
+                v-if="plan.stockBadge"
+                class="plan-stock-badge"
+                :class="{ 'is-sold-out': plan.stockBadge?.soldOut }"
+              >
+                {{ stockBadgeText(plan.stockBadge) }}
+              </span>
+            </div>
             <div class="plan-price">
               <span class="price-currency">¥</span>
               <span class="price-amount">{{ plan.displayPrice }}</span>
@@ -286,9 +295,11 @@
             </ul>
             <button
               class="plan-btn"
+              :class="{ 'is-sold-out': plan.stockBadge?.soldOut }"
+              :disabled="!!plan.stockBadge?.soldOut"
               @click="goCheckout(plan.id)"
             >
-              {{ t('landing.choosePlan') }}
+              {{ plan.stockBadge?.soldOut ? t('plan.soldOut') : t('landing.choosePlan') }}
             </button>
           </div>
         </div>
@@ -369,6 +380,7 @@ import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { guestApi } from '@/api'
 import type { Plan } from '@/api/types'
+import { getPlanStockBadgeInfo, type PlanStockBadgeInfo } from '@/utils/plan'
 import StellarIcon from '@/components/StellarIcon.vue'
 import {
   isInternalNavigationTarget,
@@ -496,6 +508,7 @@ const fallbackPlans = [
     displayPrice: '9.9',
     displayPeriod: '/月',
     displayFeatures: ['适合轻度网页访问', '常用地区线路', '基础影音优化', '全平台配置导入', '在线客服支持'],
+    stockBadge: null as PlanStockBadgeInfo | null,
   },
   {
     id: 0,
@@ -503,6 +516,7 @@ const fallbackPlans = [
     displayPrice: '19.9',
     displayPeriod: '/月',
     displayFeatures: ['适合日常稳定使用', '高速低延迟线路', '在线视频优化', '多设备同时使用', '热门线路优先接入'],
+    stockBadge: null as PlanStockBadgeInfo | null,
   },
   {
     id: 0,
@@ -510,8 +524,19 @@ const fallbackPlans = [
     displayPrice: '39.9',
     displayPeriod: '/月',
     displayFeatures: ['适合高频网络使用', '高级专用线路', '4K/8K 在线影音体验', '游戏与远程办公优化', '更高流量与速率保障'],
+    stockBadge: null as PlanStockBadgeInfo | null,
   },
 ]
+
+// 套餐库存徽标文案（不限量返回空字符串，由模板 v-if 控制不渲染）
+const stockBadgeText = (badge: PlanStockBadgeInfo | null): string => {
+  if (!badge) return ''
+  if (badge.soldOut) return t('plan.soldOut')
+  if (badge.labelKey === 'plan.stockRemainTotal') {
+    return t('plan.stockRemainTotal', { remain: badge.remain ?? 0, total: badge.total ?? 0 })
+  }
+  return t(badge.labelKey, { count: badge.count ?? 0 })
+}
 
 // 功能特性列表
 const featureList = [
@@ -629,12 +654,15 @@ const displayPlans = computed(() => {
         break
       }
     }
+    // 库存徽标（Xboard 显示上限「限量 N 份」，v2board 显示剩余「仅剩 N 份」，售罄显示「已售罄」）
+    const stockBadge = getPlanStockBadgeInfo(plan)
     return {
       id: plan.id,
       name: plan.name,
       displayPrice: formatPrice(price),
       displayPeriod: period,
       displayFeatures: features,
+      stockBadge,
     }
   })
 })

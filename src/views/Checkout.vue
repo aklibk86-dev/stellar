@@ -30,7 +30,12 @@
           <h3 class="section-title">{{ t('plan.selectedPlan') }}</h3>
           <div class="plan-info">
             <div class="plan-info-header">
-              <h4 class="plan-info-name">{{ plan.name }}</h4>
+              <div class="plan-info-title-row">
+                <h4 class="plan-info-name">{{ plan.name }}</h4>
+                <span v-if="planStockBadge" class="plan-stock-badge" :class="{ 'is-sold-out': planStockBadge.soldOut }">
+                  {{ planStockBadge.text }}
+                </span>
+              </div>
               <div v-if="plan.content" class="plan-info-desc rich-content" v-html="renderRichContent(plan.content)"></div>
             </div>
           </div>
@@ -184,6 +189,7 @@ import { useMessage, NButton, NInput, NSkeleton, NAlert } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, PaymentMethod, Coupon } from '@/api/types'
 import { formatPrice } from '@/utils/format'
+import { getPlanStockBadgeInfo } from '@/utils/plan'
 import { renderRichContent } from '@/utils/safe'
 import { normalizeCoupon } from '@/utils/backend'
 import {
@@ -218,6 +224,18 @@ const couponData = ref<Coupon | null>(null)
 
 const hasSelectedPayment = computed(() => selectedPayment.value !== null && selectedPayment.value !== '')
 const actualPayAmount = computed(() => orderDetail.value ? Number(orderDetail.value.total_amount || 0) : finalPrice.value)
+
+// 套餐库存徽标（后端补丁提供剩余+总数时显示「剩余 X / 总 Y」；售罄显示「已售罄」）
+const planStockBadge = computed(() => {
+  if (!plan.value) return null
+  const info = getPlanStockBadgeInfo(plan.value)
+  if (!info) return null
+  if (info.soldOut) return { soldOut: true, text: t('plan.soldOut') }
+  const text = info.labelKey === 'plan.stockRemainTotal'
+    ? t('plan.stockRemainTotal', { remain: info.remain ?? 0, total: info.total ?? 0 })
+    : t(info.labelKey, { count: info.count ?? 0 })
+  return { soldOut: false, text }
+})
 const selectedPaymentMethod = computed(() => paymentMethods.value.find(method => method.id === Number(selectedPayment.value)))
 const paymentHandlingFee = computed(() => {
   if (!existingTradeNo.value || actualPayAmount.value <= 0 || !selectedPaymentMethod.value) return 0
@@ -501,8 +519,13 @@ onMounted(fetchData)
 
 /* 套餐信息 */
 .plan-info { display: flex; flex-direction: column; gap: 12px; }
+.plan-info-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-info-name { font-size: 18px; font-weight: 700; color: var(--stellar-text); margin: 0; }
 .plan-info-desc { font-size: 13px; color: var(--stellar-text-muted); margin: 4px 0 0 0; }
+
+/* 套餐库存徽标 */
+.plan-stock-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.plan-stock-badge.is-sold-out { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
 
 /* 套餐介绍富文本（HTML / Markdown） */
 .plan-info-desc.rich-content { font-size: 13px; color: var(--stellar-text-muted); line-height: 1.6; }

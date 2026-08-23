@@ -77,10 +77,24 @@
         v-for="plan in filteredPlans"
         :key="plan.id"
         class="plan-card"
+        :class="{ 'is-sold-out': isPlanSoldOut(plan) }"
       >
         <!-- 套餐名称 + 价格 -->
         <div class="plan-header">
-          <h3 class="plan-name">{{ plan.name }}</h3>
+          <div class="plan-title-row">
+            <h3 class="plan-name">{{ plan.name }}</h3>
+            <span
+              v-if="planStockBadge(plan)"
+              class="plan-stock-badge"
+              :class="{ 'is-sold-out': planStockBadge(plan)?.soldOut }"
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                <line x1="7" y1="7" x2="7.01" y2="7" />
+              </svg>
+              {{ planStockBadge(plan)?.text }}
+            </span>
+          </div>
           <div class="plan-price-display">
             <template v-if="displayPriceInfo(plan)">
               <span class="price-symbol">¥</span>
@@ -98,8 +112,8 @@
 
         <!-- 购买按钮 -->
         <div class="plan-action">
-          <n-button type="primary" block @click="goToCheckout(plan)">
-            {{ t('plan.subscribe') }}
+          <n-button type="primary" block :disabled="isPlanSoldOut(plan)" @click="goToCheckout(plan)">
+            {{ isPlanSoldOut(plan) ? t('plan.soldOut') : t('plan.subscribe') }}
           </n-button>
         </div>
       </div>
@@ -169,6 +183,7 @@ import { NButton, NSelect, NSkeleton, NModal, NCheckbox } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, Notice } from '@/api/types'
 import { formatPrice, formatDate } from '@/utils/format'
+import { getPlanStockBadgeInfo, isPlanSoldOut } from '@/utils/plan'
 import { sanitizeHtml, renderRichContent } from '@/utils/safe'
 
 const router = useRouter()
@@ -301,6 +316,19 @@ const displayPriceInfo = (plan: Plan): { price: number, label: string } | null =
   return null
 }
 
+// ===== 库存 =====
+// 套餐库存徽标：不限量返回 null；已售罄返回「已售罄」；
+// 后端补丁提供剩余+总数时显示「剩余 X / 总 Y」，否则按后端语义显示「限量 N 份」或「仅剩 N 份」
+const planStockBadge = (plan: Plan): { soldOut: boolean, text: string } | null => {
+  const info = getPlanStockBadgeInfo(plan)
+  if (!info) return null
+  if (info.soldOut) return { soldOut: true, text: t('plan.soldOut') }
+  const text = info.labelKey === 'plan.stockRemainTotal'
+    ? t('plan.stockRemainTotal', { remain: info.remain ?? 0, total: info.total ?? 0 })
+    : t(info.labelKey, { count: info.count ?? 0 })
+  return { soldOut: false, text }
+}
+
 const getMonthPrice = (plan: Plan): number | null => {
   return displayPriceInfo(plan)?.price ?? null
 }
@@ -431,8 +459,15 @@ onMounted(async () => {
 .plan-card { position: relative; background: var(--stellar-bg-card); border: 1px solid var(--stellar-border); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s; }
 .plan-card:hover { border-color: var(--stellar-primary); box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12); transform: translateY(-2px); }
 .plan-header { display: flex; flex-direction: column; gap: 6px; }
+.plan-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-name { font-size: 20px; font-weight: 700; color: var(--stellar-text); margin: 0; }
 .plan-desc { font-size: 12px; color: var(--stellar-text-muted); margin: 0; line-height: 1.5; flex: 1; }
+
+/* 套餐库存徽标 */
+.plan-stock-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.plan-stock-badge.is-sold-out { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
+.plan-card.is-sold-out { border-color: rgba(239, 68, 68, 0.28); }
+.plan-card.is-sold-out:hover { border-color: #ef4444; box-shadow: 0 8px 24px rgba(239, 68, 68, 0.12); }
 
 /* 套餐介绍富文本（HTML / Markdown） */
 .plan-desc.rich-content { font-size: 12px; color: var(--stellar-text-muted); }
