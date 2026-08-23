@@ -51,8 +51,14 @@ export default defineConfig({
   esbuild: {
     drop: ['console', 'debugger'],
   },
-  // server: {
-  //   host: '0.0.0.0',
-  //   port: 3100,
-  // },
+  server: {
+    // 固定端口：需要时取消下面两行注释
+    // host: '0.0.0.0',
+    // port: 3100,
+    watch: {
+      // 忽略写入工具残留的 .tmpdir 临时目录（本磁盘 exFAT 不支持原子写，
+      // 该类目录可能被占用/锁定，chokidar 监视会以 EBUSY 崩溃 dev server）
+      ignored: ['**/*.tmpdir/**'],
+    },
+  },
 })
