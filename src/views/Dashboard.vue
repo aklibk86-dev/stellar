@@ -157,7 +157,12 @@
                 </div>
 
                 <div class="sub-controls">
-                  <n-button type="primary" @click="showSubscribeModal = true">
+                  <n-button
+                    type="primary"
+                    :color="importButtonBackgroundColor"
+                    :text-color="importButtonTextColor"
+                    @click="showSubscribeModal = true"
+                  >
                     <template #icon><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></template>
                     {{ t('dashboard.oneClickSubscribe') }}
                   </n-button>
@@ -514,6 +519,18 @@ const fetchRecentTickets = async () => {
 const userEmail = computed(() => user.value?.email || 'User')
 const shortUuid = computed(() => (user.value?.uuid || '').substring(0, 8).toUpperCase())
 const subscribeUrl = computed(() => subscribe.value?.subscribe_url || '')
+
+const configuredColor = (value: unknown) => {
+  if (typeof value !== 'string') return undefined
+  return value.trim() || undefined
+}
+
+const importButtonBackgroundColor = computed(() => configuredColor(
+  window.settings?.client_imports?.button_background_color,
+))
+const importButtonTextColor = computed(() => configuredColor(
+  window.settings?.client_imports?.button_text_color,
+))
 
 const usedTraffic = computed(() => (subscribe.value?.u || 0) + (subscribe.value?.d || 0))
 const remainingTraffic = computed(() => Math.max(0, (subscribe.value?.transfer_enable || 0) - usedTraffic.value))

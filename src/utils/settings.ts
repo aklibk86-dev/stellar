@@ -44,6 +44,8 @@ const defaultSettings = {
   client_imports: {
     enabled: true,
     clients: [] as string[],
+    button_background_color: '',
+    button_text_color: '',
   },
   social_sharing: {
     enabled: true,

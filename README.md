@@ -176,6 +176,8 @@ window.settings = {
   client_imports: {
     enabled: true,
     clients: [],
+    button_background_color: '#2563eb',
+    button_text_color: '#ffffff',
   },
   social_sharing: {
     enabled: true,
@@ -228,7 +230,7 @@ window.settings = {
 | `sidebar_navigation` | 后台侧边栏；支持分组、双语名称、排序、显隐、图标、徽标、站内路径及安全外链 |
 | `telegram_group` | Telegram 群组链接 |
 | `glassmorphism` | 毛玻璃卡片特效配置 |
-| `client_imports` | 一键导入开关及客户端 ID 白名单；`clients: []` 表示全部 |
+| `client_imports` | 一键导入开关、客户端 ID 白名单及仪表盘按钮颜色；`clients: []` 表示全部，`button_background_color` / `button_text_color` 留空时沿用主题默认值 |
 | `social_sharing` | 邀请分享开关、平台列表及自定义分享标题/描述 |
 | `customer_service` | Tawk、Crisp、Chatwoot、Intercom 或可信自定义客服脚本配置 |
 | `session` | 会话超时配置（小时，0=不限制）：`idle_hours` / `max_hours` / `remembered_max_hours`（"记住我"用） |

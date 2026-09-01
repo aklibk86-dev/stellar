@@ -69,6 +69,10 @@ interface Window {
     client_imports?: {
       enabled?: boolean
       clients?: string[]
+      /** 仪表盘“一键导入”按钮背景色；留空时使用主题色 */
+      button_background_color?: string
+      /** 仪表盘“一键导入”按钮文字及图标颜色；留空时使用组件默认色 */
+      button_text_color?: string
     }
     social_sharing?: {
       enabled?: boolean
