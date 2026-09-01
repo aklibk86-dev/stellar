@@ -154,7 +154,7 @@ const sendEmailCode = async () => {
   codeLoading.value = true
   try {
     await passportApi.sendEmailVerify(formData.email)
-    message.success(t('common.success'))
+    message.success(t('auth.emailCodeSent'))
     countdown.value = 60
     timer = setInterval(() => { countdown.value--; if (countdown.value <= 0 && timer) { clearInterval(timer); timer = null } }, 1000)
   } catch (err: any) { message.error(err.message || t('common.failed')) } finally { codeLoading.value = false }
