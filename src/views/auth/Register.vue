@@ -34,6 +34,10 @@
           <h2 class="auth-title">{{ t('auth.registerTitle') }}</h2>
           <p class="auth-subtitle">{{ t('auth.registerSubtitle') }}</p>
 
+          <n-alert v-if="emailWhitelistEnabled" class="email-whitelist-alert" type="info" :show-icon="false">
+            {{ t('auth.emailWhitelistHint', { suffixes: emailWhitelistSuffixes.join(', ') }) }}
+          </n-alert>
+
           <n-form ref="formRef" class="auth-register-form" :model="formData" :rules="rules" size="medium" @submit.prevent="handleRegister">
             <n-form-item path="email" :label="t('auth.email')">
               <n-input-group v-if="emailWhitelistEnabled" class="email-input-group">
@@ -99,7 +103,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useMessage, type FormInst, type FormRules } from 'naive-ui'
+import { useMessage, NAlert, type FormInst, type FormRules } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 import { passportApi } from '@/api'
@@ -304,6 +308,7 @@ onUnmounted(() => {
 .email-prefix-input { flex: 1; min-width: 0; }
 .email-suffix-select { width: 124px; flex: 0 0 124px; }
 .email-suffix-select :deep(.n-base-selection) { border-radius: 0 4px 4px 0; }
+.email-whitelist-alert { margin: -12px 0 20px; }
 .auth-register-form :deep(.n-input-group) { display: flex; }
 .auth-link { color: var(--stellar-primary); font-size: 13px; font-weight: 500; cursor: pointer; }
 .auth-link:hover { text-decoration: underline; }

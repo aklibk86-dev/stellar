@@ -37,10 +37,6 @@
           <h2 class="auth-title">{{ t('auth.loginTitle') }}</h2>
           <p class="auth-subtitle">{{ t('auth.loginSubtitle') }}</p>
 
-          <n-alert v-if="emailWhitelistEnabled" class="email-whitelist-alert" type="info" :show-icon="false">
-            {{ t('auth.emailWhitelistLoginHint', { suffixes: emailWhitelistSuffixes.join(', ') }) }}
-          </n-alert>
-
           <n-alert
             v-if="loginRequired"
             class="login-required-alert"
@@ -124,7 +120,6 @@ import { passportApi } from '@/api'
 import { NButton } from 'naive-ui'
 import { getSafeRedirect } from '@/utils/navigation'
 import { can } from '@/utils/backend'
-import { getEmailWhitelistSuffixes } from '@/utils/emailWhitelist'
 import StellarDropdown from '@/components/StellarDropdown.vue'
 import StellarIcon from '@/components/StellarIcon.vue'
 
@@ -149,8 +144,6 @@ const description = computed(() => appStore.description)
 // 向后兼容：当新的全站背景（background）启用时，由全局组件统一渲染，
 // 此处不再重复渲染 auth 专属背景；仅在新背景未启用且旧 background_url 有值时保留原行为。
 const backgroundUrl = computed(() => (appStore.backgroundEnabled ? '' : appStore.backgroundUrl))
-const emailWhitelistSuffixes = computed(() => getEmailWhitelistSuffixes(userStore.guestConfig?.email_whitelist_suffix))
-const emailWhitelistEnabled = computed(() => emailWhitelistSuffixes.value.length > 0)
 
 const localeOptions = [
   { label: '简体中文', key: 'zh-CN' },
@@ -392,8 +385,6 @@ onMounted(async () => {
   color: var(--stellar-text-muted);
   margin-bottom: 32px;
 }
-
-.email-whitelist-alert { margin: -12px 0 20px; }
 
 .login-required-alert {
   margin-bottom: 20px;

@@ -114,7 +114,6 @@ const messages = {
       loginRequiredDesc: '登录后即可继续访问刚才的页面。',
       emailWhitelistHint: '仅允许使用以下邮箱后缀注册：{suffixes}',
       emailWhitelistError: '邮箱后缀不在允许范围内，请使用：{suffixes}',
-      emailWhitelistLoginHint: '本站注册仅允许以下邮箱后缀：{suffixes}',
     },
     notFound: {
       title: '页面不存在',
@@ -746,7 +745,6 @@ const messages = {
       loginRequiredDesc: 'Sign in to continue to the page you requested.',
       emailWhitelistHint: 'Registration only accepts these email domains: {suffixes}',
       emailWhitelistError: 'This email domain is not allowed. Use: {suffixes}',
-      emailWhitelistLoginHint: 'Registration only accepts these email domains: {suffixes}',
     },
     notFound: {
       title: 'Page not found',
