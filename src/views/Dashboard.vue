@@ -18,7 +18,9 @@
           <span class="balance-label">{{ t('dashboard.balance') }}</span>
           <div class="balance-row">
             <span class="balance-amount">¥{{ formatMoney(user?.balance) }}</span>
+            <!-- TODO: 充值功能待后续完善后恢复；按钮入口暂不渲染，相关业务逻辑保留。
             <button class="recharge-btn" @click="$router.push('/plans')">{{ t('dashboard.buyPlan') }}</button>
+            -->
           </div>
         </div>
       </div>
