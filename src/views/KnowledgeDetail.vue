@@ -84,7 +84,7 @@
         <h1 class="article-title">{{ doc.title }}</h1>
       </header>
 
-      <!-- 文章正文（正文中的 <stellar-import> 标记会在渲染后被替换为一键导入组件） -->
+      <!-- 文章正文（正文中的 <stellar-import> 标记会在渲染后被替换为一键导入按钮） -->
       <div ref="articleRef" class="prose" v-html="renderContent(doc.body)"></div>
 
       <!-- 底部翻页 -->
@@ -135,7 +135,7 @@ import { useUserStore } from '@/stores/user'
 import type { Knowledge, KnowledgeCategory, Subscribe } from '@/api/types'
 import { formatDate } from '@/utils/format'
 import { renderContent } from '@/utils/safe'
-import { STELLAR_IMPORT_TAG } from '@/utils/sanitize'
+import { STELLAR_COPY_TAG, STELLAR_IMPORT_TAG } from '@/utils/sanitize'
 import SubscribeImportModal from '@/components/SubscribeImportModal.vue'
 
 const route = useRoute()
@@ -195,15 +195,12 @@ const getCategoryName = (category: string): string => {
   return cat?.name || category
 }
 
-// ===== 正文内嵌"一键导入"标记 =====
-// 写文档时在正文任意位置放 <stellar-import></stellar-import>，
-// 渲染后自动替换为"一键导入订阅"组件，点击弹出 SubscribeImportModal。
+// ===== 正文内嵌订阅操作标记 =====
+// <stellar-import> 保留一键导入语义，<stellar-copy> 仅生成复制订阅按钮。
 const articleRef = ref<HTMLElement | null>(null)
 const showImportModal = ref(false)
 const subscribe = ref<Subscribe | null>(null)
 const subscribeUrl = computed(() => subscribe.value?.subscribe_url || '')
-const MARKER_OPEN = `<${STELLAR_IMPORT_TAG}>`
-const MARKER_CLOSE = `</${STELLAR_IMPORT_TAG}>`
 
 // 获取用户订阅信息（用于拼接导入弹窗的订阅地址）
 const fetchSubscribe = async () => {
@@ -230,30 +227,82 @@ const handleImportClick = () => {
   showImportModal.value = true
 }
 
-// 构建替换 <stellar-import> 的组件 HTML（文案为 i18n 静态字符串，安全）
-const buildImportWidgetHtml = (): string => `
-  <span class="sii-icon">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-    </svg>
-  </span>
-  <span class="sii-copy">
-    <strong class="sii-title">${t('knowledge.oneClickImport')}</strong>
-    <span class="sii-desc">${t('knowledge.oneClickImportDesc')}</span>
-  </span>
-  <button type="button" class="sii-btn">${t('knowledge.oneClickImportAction')}</button>
-`
-
-// 创建导入组件 DOM（样式由 .prose :deep(.stellar-import-widget) 控制）
-const createImportWidget = (): HTMLDivElement => {
-  const host = document.createElement('div')
-  host.className = 'stellar-import-widget'
-  host.innerHTML = buildImportWidgetHtml()
-  host.querySelector('button')?.addEventListener('click', handleImportClick)
-  return host
+const fallbackCopyText = (text: string) => {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'readonly')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  return copied
 }
 
-// 把正文中的 <stellar-import> 标记逐个替换为导入组件。
+const handleCopySubscribe = async () => {
+  const url = subscribeUrl.value
+  if (!url) {
+    if (!hasSubscription.value) {
+      showSubscriptionDialog()
+    } else {
+      message.warning(t('dashboard.noSubscribeUrl'))
+    }
+    return
+  }
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(url)
+    } else if (!fallbackCopyText(url)) {
+      throw new Error('Copy failed')
+    }
+    message.success(t('common.copied'))
+  } catch {
+    message.error(t('common.failed'))
+  }
+}
+
+const createActionButton = (label: string, handler: () => void): HTMLButtonElement => {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'sii-btn'
+  button.textContent = label
+  button.addEventListener('click', handler)
+  return button
+}
+
+// 创建与复制订阅按钮共用样式的独立导入按钮
+const createImportButton = (): HTMLButtonElement => {
+  const button = createActionButton(t('knowledge.oneClickImportAction'), handleImportClick)
+  button.dataset.siiAction = 'import'
+  return button
+}
+
+// 创建与一键导入按钮共用样式的独立复制按钮
+const createCopyButton = (): HTMLButtonElement => {
+  const button = createActionButton(t('knowledge.copySubscribe'), handleCopySubscribe)
+  button.dataset.siiAction = 'copy'
+  return button
+}
+
+const markerDefinitions = [
+  {
+    tag: STELLAR_IMPORT_TAG,
+    open: `<${STELLAR_IMPORT_TAG}>`,
+    close: `</${STELLAR_IMPORT_TAG}>`,
+    selfClosing: `<${STELLAR_IMPORT_TAG} />`,
+    createButton: () => createImportButton(),
+  },
+  {
+    tag: STELLAR_COPY_TAG,
+    open: `<${STELLAR_COPY_TAG}>`,
+    close: `</${STELLAR_COPY_TAG}>`,
+    selfClosing: `<${STELLAR_COPY_TAG} />`,
+    createButton: () => createCopyButton(),
+  },
+]
+
+// 把正文中的订阅操作标记逐个替换为对应的独立按钮。
 // 兼容两种后端存储形态：
 // 1) 标记以真实元素到达（内容未转义）→ querySelectorAll 直接替换；
 // 2) 标记被后端 HTML 转义为纯文本（&lt;stellar-import&gt;…）→ 扫描文本节点替换。
@@ -267,8 +316,10 @@ const enhanceImportWidgets = () => {
   while (needsRescan && guard++ < 8) {
     needsRescan = false
     // 1) 真实元素标记（一次处理全部）
-    article.querySelectorAll(STELLAR_IMPORT_TAG).forEach((marker) => {
-      marker.replaceWith(createImportWidget())
+    markerDefinitions.forEach((definition) => {
+      article.querySelectorAll(definition.tag).forEach((marker) => {
+        marker.replaceWith(definition.createButton())
+      })
     })
     // 2) 文本标记（转义形态：渲染后是字面 <stellar-import>…</stellar-import>，
     //    一次处理全部；拆分出的 tail 若仍含标记则下一轮重扫）
@@ -277,17 +328,39 @@ const enhanceImportWidgets = () => {
     while (walker.nextNode()) textNodes.push(walker.currentNode as Text)
     let splitTail = false
     for (const node of textNodes) {
-      const open = node.data.indexOf(MARKER_OPEN)
-      if (open === -1) continue
-      const close = node.data.indexOf(MARKER_CLOSE, open + MARKER_OPEN.length)
-      if (close === -1) continue
-      const before = node.data.slice(0, open)
-      const tail = node.data.slice(close + MARKER_CLOSE.length)
+      let match: { definition: (typeof markerDefinitions)[number]; start: number; end: number } | null = null
+      for (const candidate of markerDefinitions) {
+        const pairedOpen = node.data.indexOf(candidate.open)
+        if (pairedOpen !== -1) {
+          const pairedClose = node.data.indexOf(candidate.close, pairedOpen + candidate.open.length)
+          if (pairedClose !== -1) {
+            const candidateMatch = {
+              definition: candidate,
+              start: pairedOpen,
+              end: pairedClose + candidate.close.length,
+            }
+            if (!match || candidateMatch.start < match.start) match = candidateMatch
+          }
+        }
+        const selfClosing = node.data.indexOf(candidate.selfClosing)
+        if (selfClosing !== -1) {
+          const candidateMatch = {
+            definition: candidate,
+            start: selfClosing,
+            end: selfClosing + candidate.selfClosing.length,
+          }
+          if (!match || candidateMatch.start < match.start) match = candidateMatch
+        }
+      }
+      if (!match) continue
+      const { definition, start, end } = match
+      const before = node.data.slice(0, start)
+      const tail = node.data.slice(end)
       const parent = node.parentNode
       if (!parent) continue
       const frag = document.createDocumentFragment()
       if (before) frag.appendChild(document.createTextNode(before))
-      frag.appendChild(createImportWidget())
+      frag.appendChild(definition.createButton())
       if (tail) frag.appendChild(document.createTextNode(tail))
       parent.replaceChild(frag, node)
       if (tail) splitTail = true
@@ -734,47 +807,6 @@ onMounted(async () => {
   color: var(--stellar-text);
 }
 
-/* 正文内嵌"一键导入"组件（替换 <stellar-import> 标记生成） */
-.prose :deep(.stellar-import-widget) {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 18px 0;
-  padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--stellar-primary) 32%, var(--stellar-border));
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--stellar-primary-light) 0%, var(--stellar-bg-card) 70%);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
-}
-.prose :deep(.sii-icon) {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  color: #fff;
-  background: var(--stellar-primary);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--stellar-primary) 26%, transparent);
-}
-.prose :deep(.sii-copy) {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.prose :deep(.sii-title) {
-  color: var(--stellar-text);
-  font-size: 14.5px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.prose :deep(.sii-desc) {
-  color: var(--stellar-text-muted);
-  font-size: 12px;
-  line-height: 1.55;
-}
 .prose :deep(.sii-btn) {
   flex-shrink: 0;
   padding: 9px 16px;
@@ -898,22 +930,5 @@ onMounted(async () => {
     justify-content: flex-start;
   }
 
-  /* 移动端: 一键导入组件垂直堆叠 */
-  .prose :deep(.stellar-import-widget) {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-    padding: 14px;
-  }
-  .prose :deep(.sii-icon) {
-    margin: 0 auto;
-  }
-  .prose :deep(.sii-desc) {
-    padding: 0 4px;
-  }
-  .prose :deep(.sii-btn) {
-    width: 100%;
-    margin-top: 4px;
-  }
 }
 </style>

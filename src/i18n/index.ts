@@ -505,7 +505,8 @@ const messages = {
         subscriptionDialogContent: '购买套餐后即可查看文档库中的教程和常见问题。',
         oneClickImport: '一键导入订阅',
         oneClickImportDesc: '将你的订阅地址一键导入 Clash、Shadowrocket、Sing-box 等客户端，扫码或直达导入',
-        oneClickImportAction: '选择客户端导入',
+        oneClickImportAction: '一键导入',
+        copySubscribe: '复制订阅',
         importFailedTip: '订阅信息加载失败，请刷新页面后重试',
     },
     profile: {
@@ -1136,7 +1137,8 @@ const messages = {
         subscriptionDialogContent: 'Purchase a plan to access tutorials and frequently asked questions.',
         oneClickImport: 'One-Click Import',
         oneClickImportDesc: 'Import your subscription into Clash, Shadowrocket, Sing-box and more clients via one click or QR code',
-        oneClickImportAction: 'Choose a client',
+        oneClickImportAction: 'One-Click Import',
+        copySubscribe: 'Copy Subscription',
         importFailedTip: 'Failed to load subscription info. Please refresh and try again.',
     },
     profile: {
