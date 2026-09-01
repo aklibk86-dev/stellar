@@ -183,7 +183,7 @@ import { NButton, NSelect, NSkeleton, NModal, NCheckbox } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, Notice } from '@/api/types'
 import { formatPrice, formatDate } from '@/utils/format'
-import { getPlanStockBadgeInfo, isPlanSoldOut } from '@/utils/plan'
+import { getPlanStockDisplayInfo, isPlanSoldOut, shouldDisplayPlan } from '@/utils/plan'
 import { renderRichContent } from '@/utils/safe'
 import SubscribeActionContent from '@/components/SubscribeActionContent.vue'
 
@@ -318,16 +318,11 @@ const displayPriceInfo = (plan: Plan): { price: number, label: string } | null =
 }
 
 // ===== 库存 =====
-// 套餐库存徽标：不限量返回 null；已售罄返回「已售罄」；
-// 后端补丁提供剩余+总数时显示「剩余 X / 总 Y」，否则按后端语义显示「限量 N 份」或「仅剩 N 份」
+// 套餐库存徽标：文案与风格统一由库存工具生成
 const planStockBadge = (plan: Plan): { soldOut: boolean, text: string } | null => {
-  const info = getPlanStockBadgeInfo(plan)
+  const info = getPlanStockDisplayInfo(plan)
   if (!info) return null
-  if (info.soldOut) return { soldOut: true, text: t('plan.soldOut') }
-  const text = info.labelKey === 'plan.stockRemainTotal'
-    ? t('plan.stockRemainTotal', { remain: info.remain ?? 0, total: info.total ?? 0 })
-    : t(info.labelKey, { count: info.count ?? 0 })
-  return { soldOut: false, text }
+  return { soldOut: info.soldOut, text: t(info.textKey, info.params || {}) }
 }
 
 const getMonthPrice = (plan: Plan): number | null => {
@@ -335,7 +330,7 @@ const getMonthPrice = (plan: Plan): number | null => {
 }
 
 const filteredPlans = computed(() => {
-  let result = [...plans.value].filter(p => p.show !== false && p.sell !== false)
+  let result = [...plans.value].filter(shouldDisplayPlan)
 
   if (activeFilter.value === 'cycle') {
     result = result.filter(p => p.month_price !== null || p.quarter_price !== null || p.half_year_price !== null || p.year_price !== null)
@@ -465,7 +460,7 @@ onMounted(async () => {
 .plan-desc { font-size: 12px; color: var(--stellar-text-muted); margin: 0; line-height: 1.5; flex: 1; }
 
 /* 套餐库存徽标 */
-.plan-stock-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.plan-stock-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; min-width: max-content; background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
 .plan-stock-badge.is-sold-out { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
 .plan-card.is-sold-out { border-color: rgba(239, 68, 68, 0.28); }
 .plan-card.is-sold-out:hover { border-color: #ef4444; box-shadow: 0 8px 24px rgba(239, 68, 68, 0.12); }

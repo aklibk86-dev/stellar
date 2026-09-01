@@ -33,6 +33,8 @@ interface Window {
     avatar_source?: string
     landing_theme_mode?: 'dark' | 'light'
     landing_page_enabled?: boolean
+    /** 套餐库存显示风格：conservative 保守型 | aggressive 激进型 | balanced 中间型（默认） */
+    stock_display_style?: import('@/utils/plan').StockDisplayStyle
     landing_hero?: {
       badge?: string
       badge_en?: string

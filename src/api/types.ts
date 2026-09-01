@@ -74,6 +74,8 @@ export interface Plan {
   // 库存/订阅人数上限（Xboard capacity_limit）：
   // null = 不限量；正整数 = 上限；0 或后端本地化的 "Sold out"/"已售罄" 字符串 = 已售罄
   // 语义随后端不同：Xboard 返回上限（总数），v2board 返回剩余库存
+  // Xboard 售罄套餐兼容约定：后端插件可仅在列表筛选条件中按 capacity_limit + 1
+  // 计算以保留该记录，响应中的 capacity_limit 仍需返回真实 0/"Sold out"，供前端正确显示售罄。
   capacity_limit: number | string | null
   // 后端库存补丁新增字段（可选，未打补丁时不存在）：
   // capacity_total = 库存总数；capacity_remaining = 剩余库存（0/"Sold out" = 售罄，null = 不限量）

@@ -119,3 +119,75 @@ export function getPlanStockBadgeInfo(plan: Plan): PlanStockBadgeInfo | null {
   // xboard：capacity_limit 即库存上限（总数）
   return { soldOut: false, labelKey: 'plan.limitedStock', count: base, remain: null, total: base }
 }
+
+export type StockDisplayStyle = 'conservative' | 'aggressive' | 'balanced'
+
+export interface PlanStockDisplayInfo {
+  soldOut: boolean
+  count: number
+  style: StockDisplayStyle
+  textKey: 'plan.stockSufficient' | 'plan.stockAlmostSoldOut' | 'plan.stockLow' | 'plan.stockQuantity' | 'plan.stockNumber' | 'plan.stockSoldOut'
+  params?: { count: number }
+}
+
+const STOCK_LOW_THRESHOLD = 5
+
+/** Reads the configured style and safely falls back to the balanced style. */
+export function getStockDisplayStyle(): StockDisplayStyle {
+  const configured = typeof window !== 'undefined' ? window.settings?.stock_display_style : undefined
+  return configured === 'conservative' || configured === 'aggressive' || configured === 'balanced'
+    ? configured
+    : 'balanced'
+}
+
+/** Converts backend-aware stock information into one display model. */
+export function getPlanStockDisplayInfo(plan: Plan): PlanStockDisplayInfo | null {
+  const badge = getPlanStockBadgeInfo(plan)
+  if (!badge) return null
+
+  const count = badge.soldOut ? 0 : badge.remain ?? badge.count ?? 0
+  const style = getStockDisplayStyle()
+
+  if (badge.soldOut) {
+    return {
+      soldOut: true,
+      count: 0,
+      style,
+      textKey: style === 'aggressive' ? 'plan.stockNumber' : 'plan.stockSoldOut',
+      params: { count: 0 },
+    }
+  }
+
+  if (style === 'aggressive') {
+    return { soldOut: false, count, style, textKey: 'plan.stockNumber', params: { count } }
+  }
+
+  if (style === 'conservative') {
+    return {
+      soldOut: false,
+      count,
+      style,
+      textKey: count <= STOCK_LOW_THRESHOLD ? 'plan.stockAlmostSoldOut' : 'plan.stockSufficient',
+      params: { count },
+    }
+  }
+
+  return {
+    soldOut: false,
+    count,
+    style,
+    textKey: count <= STOCK_LOW_THRESHOLD ? 'plan.stockLow' : 'plan.stockQuantity',
+    params: { count },
+  }
+}
+
+/**
+ * Keep visible plans and informational sold-out plans. Some backends turn
+ * `sell` off automatically after stock reaches zero, but `show` still controls
+ * whether the plan should remain in the catalog.
+ */
+export function shouldDisplayPlan(plan: Plan): boolean {
+  if (plan.show === false) return false
+  if (plan.sell !== false) return true
+  return getPlanStockBadgeInfo(plan)?.soldOut === true
+}

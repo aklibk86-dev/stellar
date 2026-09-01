@@ -189,7 +189,7 @@ import { useMessage, NButton, NInput, NSkeleton, NAlert } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, PaymentMethod, Coupon } from '@/api/types'
 import { formatPrice } from '@/utils/format'
-import { getPlanStockBadgeInfo } from '@/utils/plan'
+import { getPlanStockDisplayInfo } from '@/utils/plan'
 import { renderRichContent } from '@/utils/safe'
 import { normalizeCoupon } from '@/utils/backend'
 import {
@@ -225,16 +225,12 @@ const couponData = ref<Coupon | null>(null)
 const hasSelectedPayment = computed(() => selectedPayment.value !== null && selectedPayment.value !== '')
 const actualPayAmount = computed(() => orderDetail.value ? Number(orderDetail.value.total_amount || 0) : finalPrice.value)
 
-// 套餐库存徽标（后端补丁提供剩余+总数时显示「剩余 X / 总 Y」；售罄显示「已售罄」）
+// 套餐库存徽标文案与风格统一由库存工具生成
 const planStockBadge = computed(() => {
   if (!plan.value) return null
-  const info = getPlanStockBadgeInfo(plan.value)
+  const info = getPlanStockDisplayInfo(plan.value)
   if (!info) return null
-  if (info.soldOut) return { soldOut: true, text: t('plan.soldOut') }
-  const text = info.labelKey === 'plan.stockRemainTotal'
-    ? t('plan.stockRemainTotal', { remain: info.remain ?? 0, total: info.total ?? 0 })
-    : t(info.labelKey, { count: info.count ?? 0 })
-  return { soldOut: false, text }
+  return { soldOut: info.soldOut, text: t(info.textKey, info.params || {}) }
 })
 const selectedPaymentMethod = computed(() => paymentMethods.value.find(method => method.id === Number(selectedPayment.value)))
 const paymentHandlingFee = computed(() => {
@@ -524,7 +520,7 @@ onMounted(fetchData)
 .plan-info-desc { font-size: 13px; color: var(--stellar-text-muted); margin: 4px 0 0 0; }
 
 /* 套餐库存徽标 */
-.plan-stock-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.plan-stock-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; min-width: max-content; background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
 .plan-stock-badge.is-sold-out { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
 
 /* 套餐介绍富文本（HTML / Markdown） */

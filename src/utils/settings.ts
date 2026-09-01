@@ -14,6 +14,8 @@ const defaultSettings = {
   footer_code: '',
   landing_theme_mode: 'dark' as const,
   landing_page_enabled: true,
+  // 套餐库存显示风格：conservative 保守型 / aggressive 激进型 / balanced 中间型
+  stock_display_style: 'balanced' as const,
   landing_hero: {
     badge: '',
     badge_en: '',
