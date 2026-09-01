@@ -138,7 +138,7 @@
           <span v-for="tag in getNoticeTags(selectedNotice)" :key="tag" class="notice-tag" :class="getNoticeTagClass(tag)">{{ tag }}</span>
         </div>
         <img v-if="selectedNotice.img_url" class="notice-image" :src="selectedNotice.img_url" :alt="selectedNotice.title" />
-        <div class="notice-body" v-html="renderContent(selectedNotice.content)"></div>
+        <SubscribeActionContent :content="selectedNotice.content" />
       </div>
       <template #footer>
         <div class="notice-modal-footer">
@@ -184,7 +184,8 @@ import { userApi } from '@/api'
 import type { Plan, Notice } from '@/api/types'
 import { formatPrice, formatDate } from '@/utils/format'
 import { getPlanStockBadgeInfo, isPlanSoldOut } from '@/utils/plan'
-import { renderContent, renderRichContent } from '@/utils/safe'
+import { renderRichContent } from '@/utils/safe'
+import SubscribeActionContent from '@/components/SubscribeActionContent.vue'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -544,24 +545,6 @@ onMounted(async () => {
 .notice-tag.tag-plan { background: rgba(59,130,246,0.12); color: #3b82f6; }
 
 .notice-image { width: 100%; max-height: 260px; object-fit: cover; border-radius: 10px; border: 1px solid var(--stellar-border-light); }
-.notice-body { font-size: 14px; color: var(--stellar-text); line-height: 1.7; overflow-wrap: break-word; word-break: break-word; overflow-x: hidden; }
-.notice-body :deep(h1) { font-size: 20px; font-weight: 700; margin: 16px 0 10px; }
-.notice-body :deep(h2) { font-size: 17px; font-weight: 700; margin: 14px 0 8px; }
-.notice-body :deep(h3) { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
-.notice-body :deep(p) { margin: 0 0 12px; }
-.notice-body :deep(a) { color: var(--stellar-primary); text-decoration: none; }
-.notice-body :deep(a:hover) { text-decoration: underline; }
-.notice-body :deep(ul), .notice-body :deep(ol) { margin: 0 0 12px; padding-left: 24px; }
-.notice-body :deep(li) { margin: 4px 0; }
-.notice-body :deep(code) { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; padding: 2px 6px; border-radius: 4px; background: var(--stellar-bg-hover); color: var(--stellar-accent); }
-.notice-body :deep(pre) { padding: 14px; border-radius: 8px; background: var(--stellar-bg); border: 1px solid var(--stellar-border); overflow-x: auto; margin: 0 0 12px; }
-.notice-body :deep(pre code) { padding: 0; background: transparent; }
-.notice-body :deep(blockquote) { margin: 0 0 12px; padding: 10px 16px; border-left: 3px solid var(--stellar-primary); background: var(--stellar-bg-hover); border-radius: 0 8px 8px 0; }
-.notice-body :deep(img) { max-width: 100%; border-radius: 8px; }
-.notice-body :deep(table) { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
-.notice-body :deep(th), .notice-body :deep(td) { padding: 8px 12px; border: 1px solid var(--stellar-border); text-align: left; }
-.notice-body :deep(th) { background: var(--stellar-bg-hover); font-weight: 600; }
-
 .notice-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 
 /* 公告列表弹窗 */

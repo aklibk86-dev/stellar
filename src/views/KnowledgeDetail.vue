@@ -85,7 +85,11 @@
       </header>
 
       <!-- 文章正文（正文中的 <stellar-import> 标记会在渲染后被替换为一键导入按钮） -->
-      <div ref="articleRef" class="prose" v-html="renderContent(doc.body)"></div>
+      <SubscribeActionContent
+        :content="doc.body"
+        :subscribe-url="subscribeUrl"
+        :has-subscription="hasSubscription"
+      />
 
       <!-- 底部翻页 -->
       <footer class="article-footer">
@@ -121,28 +125,24 @@
     </article>
 
     <!-- 正文内嵌"一键导入"标记触发的导入弹窗（复用仪表盘同款，30+ 客户端 + 二维码） -->
-    <SubscribeImportModal v-model:show="showImportModal" :subscribe-url="subscribeUrl" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NTag, useDialog, useMessage } from 'naive-ui'
+import { NTag, useDialog } from 'naive-ui'
 import { userApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import type { Knowledge, KnowledgeCategory, Subscribe } from '@/api/types'
 import { formatDate } from '@/utils/format'
-import { renderContent } from '@/utils/safe'
-import { STELLAR_COPY_TAG, STELLAR_IMPORT_TAG } from '@/utils/sanitize'
-import SubscribeImportModal from '@/components/SubscribeImportModal.vue'
+import SubscribeActionContent from '@/components/SubscribeActionContent.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const dialog = useDialog()
-const message = useMessage()
 
 const allDocs = ref<Knowledge[]>([])
 const categories = ref<KnowledgeCategory[]>([])
@@ -197,8 +197,6 @@ const getCategoryName = (category: string): string => {
 
 // ===== 正文内嵌订阅操作标记 =====
 // <stellar-import> 保留一键导入语义，<stellar-copy> 仅生成复制订阅按钮。
-const articleRef = ref<HTMLElement | null>(null)
-const showImportModal = ref(false)
 const subscribe = ref<Subscribe | null>(null)
 const subscribeUrl = computed(() => subscribe.value?.subscribe_url || '')
 
@@ -214,199 +212,8 @@ const fetchSubscribe = async () => {
   }
 }
 
-// 一键导入按钮点击：有订阅地址 → 打开导入弹窗；否则引导购买套餐
-const handleImportClick = () => {
-  if (!subscribeUrl.value) {
-    if (!hasSubscription.value) {
-      showSubscriptionDialog()
-    } else {
-      message.warning(t('knowledge.importFailedTip'))
-    }
-    return
-  }
-  showImportModal.value = true
-}
-
-const fallbackCopyText = (text: string) => {
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.setAttribute('readonly', 'readonly')
-  textarea.style.position = 'fixed'
-  textarea.style.left = '-9999px'
-  document.body.appendChild(textarea)
-  textarea.select()
-  const copied = document.execCommand('copy')
-  document.body.removeChild(textarea)
-  return copied
-}
-
-const handleCopySubscribe = async () => {
-  const url = subscribeUrl.value
-  if (!url) {
-    if (!hasSubscription.value) {
-      showSubscriptionDialog()
-    } else {
-      message.warning(t('dashboard.noSubscribeUrl'))
-    }
-    return
-  }
-  try {
-    if (navigator.clipboard?.writeText && window.isSecureContext) {
-      await navigator.clipboard.writeText(url)
-    } else if (!fallbackCopyText(url)) {
-      throw new Error('Copy failed')
-    }
-    message.success(t('common.copied'))
-  } catch {
-    message.error(t('common.failed'))
-  }
-}
-
-const createActionButton = (label: string, handler: () => void): HTMLButtonElement => {
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.className = 'sii-btn'
-  button.textContent = label
-  button.addEventListener('click', handler)
-  return button
-}
-
-// 创建与复制订阅按钮共用样式的独立导入按钮
-const createImportButton = (): HTMLButtonElement => {
-  const button = createActionButton(t('knowledge.oneClickImportAction'), handleImportClick)
-  button.dataset.siiAction = 'import'
-  return button
-}
-
-// 创建与一键导入按钮共用样式的独立复制按钮
-const createCopyButton = (): HTMLButtonElement => {
-  const button = createActionButton(t('knowledge.copySubscribe'), handleCopySubscribe)
-  button.dataset.siiAction = 'copy'
-  return button
-}
-
-const markerDefinitions = [
-  {
-    tag: STELLAR_IMPORT_TAG,
-    open: `<${STELLAR_IMPORT_TAG}>`,
-    close: `</${STELLAR_IMPORT_TAG}>`,
-    selfClosing: `<${STELLAR_IMPORT_TAG} />`,
-    createButton: () => createImportButton(),
-  },
-  {
-    tag: STELLAR_COPY_TAG,
-    open: `<${STELLAR_COPY_TAG}>`,
-    close: `</${STELLAR_COPY_TAG}>`,
-    selfClosing: `<${STELLAR_COPY_TAG} />`,
-    createButton: () => createCopyButton(),
-  },
-]
-
-// 把正文中的订阅操作标记逐个替换为对应的独立按钮。
-// 兼容两种后端存储形态：
-// 1) 标记以真实元素到达（内容未转义）→ querySelectorAll 直接替换；
-// 2) 标记被后端 HTML 转义为纯文本（&lt;stellar-import&gt;…）→ 扫描文本节点替换。
-// 文本替换会拆分出新的尾段文本节点（可能仍含标记），因此循环重扫直到没有标记为止；
-// 每次循环至少消耗一个标记、不产生新标记，必然收敛（guard 防呆）。
-const enhanceImportWidgets = () => {
-  const article = articleRef.value
-  if (!article) return
-  let guard = 0
-  let needsRescan = true
-  while (needsRescan && guard++ < 8) {
-    needsRescan = false
-    // 1) 真实元素标记（一次处理全部）
-    markerDefinitions.forEach((definition) => {
-      article.querySelectorAll(definition.tag).forEach((marker) => {
-        marker.replaceWith(definition.createButton())
-      })
-    })
-    // 2) 文本标记（转义形态：渲染后是字面 <stellar-import>…</stellar-import>，
-    //    一次处理全部；拆分出的 tail 若仍含标记则下一轮重扫）
-    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
-    const textNodes: Text[] = []
-    while (walker.nextNode()) textNodes.push(walker.currentNode as Text)
-    let splitTail = false
-    for (const node of textNodes) {
-      let match: { definition: (typeof markerDefinitions)[number]; start: number; end: number } | null = null
-      for (const candidate of markerDefinitions) {
-        const pairedOpen = node.data.indexOf(candidate.open)
-        if (pairedOpen !== -1) {
-          const pairedClose = node.data.indexOf(candidate.close, pairedOpen + candidate.open.length)
-          if (pairedClose !== -1) {
-            const candidateMatch = {
-              definition: candidate,
-              start: pairedOpen,
-              end: pairedClose + candidate.close.length,
-            }
-            if (!match || candidateMatch.start < match.start) match = candidateMatch
-          }
-        }
-        const selfClosing = node.data.indexOf(candidate.selfClosing)
-        if (selfClosing !== -1) {
-          const candidateMatch = {
-            definition: candidate,
-            start: selfClosing,
-            end: selfClosing + candidate.selfClosing.length,
-          }
-          if (!match || candidateMatch.start < match.start) match = candidateMatch
-        }
-      }
-      if (!match) continue
-      const { definition, start, end } = match
-      const before = node.data.slice(0, start)
-      const tail = node.data.slice(end)
-      const parent = node.parentNode
-      if (!parent) continue
-      const frag = document.createDocumentFragment()
-      if (before) frag.appendChild(document.createTextNode(before))
-      frag.appendChild(definition.createButton())
-      if (tail) frag.appendChild(document.createTextNode(tail))
-      parent.replaceChild(frag, node)
-      if (tail) splitTail = true
-    }
-    needsRescan = splitTail
-  }
-}
-
-// MutationObserver 兜底：v-html 重渲染、路由复用等任何时序差异都会触发重新增强。
-// 幂等：正文没有标记时不做任何 DOM 修改，不会死循环。
-let articleObserver: MutationObserver | null = null
-const attachArticleObserver = () => {
-  articleObserver?.disconnect()
-  articleObserver = null
-  const article = articleRef.value
-  if (!article) return
-  articleObserver = new MutationObserver(() => enhanceImportWidgets())
-  articleObserver.observe(article, { childList: true, subtree: true })
-}
-
-// 文章元素真正挂载时（ref 从 null → 元素）注入组件并挂上观察者。
-// 关键：页面加载期间 subscriptionLoading 先为 true，文章要到最后才渲染，
-// 仅监听 doc.body 会在文章尚未存在时提前空跑、且观察者挂不上去，
-// 导致文章渲染出来后没有任何触发点（表现为：标记留在 DOM、组件永远不出现）。
-watch(articleRef, (article, prev) => {
-  if (prev && prev !== article) articleObserver?.disconnect()
-  if (article) {
-    void nextTick(() => {
-      enhanceImportWidgets()
-      attachArticleObserver()
-    })
-  }
-})
-
-// v-html 重渲染 / 语言切换 / 文档切换后重新注入组件
-watch(() => doc.value?.body, () => {
-  void nextTick(() => {
-    enhanceImportWidgets()
-    attachArticleObserver()
-  })
-})
-watch(() => locale.value, () => void nextTick(enhanceImportWidgets))
-watch(() => route.params.id, () => void nextTick(enhanceImportWidgets))
-onBeforeUnmount(() => articleObserver?.disconnect())
-
 // 加载所有文档(API 无单文档接口,从列表接口筛选)
+
 const fetchAll = async () => {
   loading.value = true
   try {
@@ -675,158 +482,6 @@ onMounted(async () => {
   margin: 0;
   line-height: 1.35;
   word-break: break-word;
-}
-
-/* 文档正文 prose */
-.prose {
-  color: var(--stellar-text);
-  line-height: 1.75;
-  font-size: 14.5px;
-  word-break: break-word;
-}
-.prose :deep(h1) {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--stellar-text);
-  margin: 28px 0 16px;
-  line-height: 1.3;
-}
-.prose :deep(h2) {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--stellar-text);
-  margin: 26px 0 14px;
-  line-height: 1.3;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--stellar-border-light);
-}
-.prose :deep(h3) {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--stellar-text);
-  margin: 22px 0 12px;
-}
-.prose :deep(h4) {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--stellar-text);
-  margin: 20px 0 10px;
-}
-.prose :deep(p) {
-  margin: 0 0 14px;
-  color: var(--stellar-text);
-}
-.prose :deep(a) {
-  color: var(--stellar-primary);
-  text-decoration: none;
-  transition: opacity 0.2s;
-}
-.prose :deep(a:hover) {
-  text-decoration: underline;
-  opacity: 0.85;
-}
-.prose :deep(ul),
-.prose :deep(ol) {
-  margin: 0 0 14px;
-  padding-left: 24px;
-  color: var(--stellar-text);
-}
-.prose :deep(li) {
-  margin: 4px 0;
-}
-.prose :deep(li::marker) {
-  color: var(--stellar-text-muted);
-}
-.prose :deep(blockquote) {
-  margin: 0 0 14px;
-  padding: 12px 16px;
-  border-left: 3px solid var(--stellar-primary);
-  background: var(--stellar-bg-hover);
-  border-radius: 0 8px 8px 0;
-  color: var(--stellar-text-secondary);
-}
-.prose :deep(blockquote p) {
-  margin: 0;
-}
-.prose :deep(code) {
-  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--stellar-bg-hover);
-  color: var(--stellar-accent);
-}
-.prose :deep(pre) {
-  margin: 0 0 14px;
-  padding: 16px;
-  border-radius: 8px;
-  background: var(--stellar-bg);
-  border: 1px solid var(--stellar-border);
-  overflow-x: auto;
-}
-.prose :deep(pre code) {
-  padding: 0;
-  background: transparent;
-  color: var(--stellar-text);
-  font-size: 13px;
-  line-height: 1.6;
-}
-.prose :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 8px 0;
-}
-.prose :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 14px;
-  font-size: 13px;
-}
-.prose :deep(th),
-.prose :deep(td) {
-  padding: 10px 12px;
-  border: 1px solid var(--stellar-border);
-  text-align: left;
-}
-.prose :deep(th) {
-  background: var(--stellar-bg-hover);
-  font-weight: 600;
-  color: var(--stellar-text);
-}
-.prose :deep(td) {
-  color: var(--stellar-text);
-}
-.prose :deep(hr) {
-  border: none;
-  border-top: 1px solid var(--stellar-border-light);
-  margin: 20px 0;
-}
-.prose :deep(strong) {
-  font-weight: 700;
-  color: var(--stellar-text);
-}
-
-.prose :deep(.sii-btn) {
-  flex-shrink: 0;
-  padding: 9px 16px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--stellar-primary);
-  color: #fff;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.prose :deep(.sii-btn:hover) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-.prose :deep(.sii-btn:focus-visible) {
-  outline: 2px solid var(--stellar-primary);
-  outline-offset: 2px;
 }
 
 /* 底部翻页 */

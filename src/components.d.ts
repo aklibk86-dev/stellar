@@ -30,6 +30,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     StellarDropdown: typeof import('./components/StellarDropdown.vue')['default']
     StellarIcon: typeof import('./components/StellarIcon.vue')['default']
+    SubscribeActionContent: typeof import('./components/SubscribeActionContent.vue')['default']
     SubscribeImportModal: typeof import('./components/SubscribeImportModal.vue')['default']
     ThirdPartyChat: typeof import('./components/ThirdPartyChat.vue')['default']
   }
