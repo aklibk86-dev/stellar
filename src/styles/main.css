@@ -69,6 +69,22 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+body.stellar-sidebar-open {
+  overflow: hidden;
+}
+
+button,
+[role='button'],
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active:not(:disabled),
+[role='button']:active,
+.menu-item:active {
+  filter: brightness(.96);
+}
+
 /* 知识库正文渲染样式，公告正文复用同一渲染器与排版规则 */
 .prose {
   color: var(--stellar-text);
@@ -365,6 +381,13 @@ a {
 .fade-leave-to {
   opacity: 0;
 }
+
+.stellar-view-enter-active,
+.stellar-view-leave-active {
+  transition: opacity .16s ease, transform .2s cubic-bezier(.22, 1, .36, 1);
+}
+.stellar-view-enter-from { opacity: 0; transform: translateY(6px); }
+.stellar-view-leave-to { opacity: 0; transform: translateY(-4px); }
 
 .slide-enter-active,
 .slide-leave-active {

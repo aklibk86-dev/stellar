@@ -1,15 +1,23 @@
 <template>
-  <div class="stellar-dropdown" @click.stop>
-    <div class="dropdown-trigger" @click="toggle">
+  <div ref="rootRef" class="stellar-dropdown" @click.stop>
+    <div
+      class="dropdown-trigger"
+      @click="toggle"
+      @keydown.esc.prevent="close"
+    >
       <slot name="trigger"></slot>
     </div>
     <Transition name="dropdown">
-      <div v-show="isOpen" class="dropdown-menu" @click.stop>
+      <div v-show="isOpen" class="dropdown-menu" role="menu" @click.stop @keydown.esc="close">
         <div
           v-for="option in options"
           :key="option.key"
           :class="['dropdown-item', { 'dropdown-divider': option.type === 'divider', 'dropdown-disabled': option.disabled }]"
+          :role="option.type === 'divider' ? 'separator' : 'menuitem'"
+          :tabindex="option.type === 'divider' || option.disabled ? -1 : 0"
           @click="handleSelect(option)"
+          @keydown.enter.prevent="handleSelect(option)"
+          @keydown.space.prevent="handleSelect(option)"
         >
           <template v-if="option.type !== 'divider'">
             <span v-if="option.icon" class="item-icon">
@@ -43,22 +51,24 @@ const emit = defineEmits<{
 }>()
 
 const isOpen = ref(false)
+const rootRef = ref<HTMLElement | null>(null)
 
 const toggle = () => {
   isOpen.value = !isOpen.value
 }
 
-const handleSelect = (option: DropdownOption) => {
-  if (option.type === 'divider' || option.disabled) return
-  emit('select', option.key)
+const close = () => {
   isOpen.value = false
 }
 
+const handleSelect = (option: DropdownOption) => {
+  if (option.type === 'divider' || option.disabled) return
+  emit('select', option.key)
+  close()
+}
+
 const handleClickOutside = (e: MouseEvent) => {
-  const target = e.target as HTMLElement
-  if (!target.closest('.stellar-dropdown')) {
-    isOpen.value = false
-  }
+  if (!rootRef.value?.contains(e.target as Node)) close()
 }
 
 onMounted(() => {
@@ -80,6 +90,11 @@ onUnmounted(() => {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+}
+
+.dropdown-item:focus-visible {
+  outline: 2px solid var(--stellar-primary);
+  outline-offset: 2px;
 }
 
 .dropdown-menu {

@@ -32,7 +32,8 @@ export const useAppStore = defineStore('app', () => {
   const isDark = ref(true)
   const defaultThemeMode = ref<ThemeMode>('dark')
   const locale = ref('zh-CN')
-  const sidebarCollapsed = ref(false)
+  // Read the preference before the first render so the layout does not shift after mount.
+  const sidebarCollapsed = ref(localStorage.getItem('stellar_sidebar_collapsed') === 'true')
   const mobileSidebarOpen = ref(false)
   const themeColor = ref<ThemeColor>('default')
   const title = ref('Stellar')
@@ -117,6 +118,8 @@ export const useAppStore = defineStore('app', () => {
       locale.value = savedLocale
     }
 
+    sidebarCollapsed.value = localStorage.getItem('stellar_sidebar_collapsed') === 'true'
+
     applyTheme()
     applyGlassmorphism()
     applyBackground()
@@ -135,6 +138,7 @@ export const useAppStore = defineStore('app', () => {
 
   const toggleSidebar = () => {
     sidebarCollapsed.value = !sidebarCollapsed.value
+    localStorage.setItem('stellar_sidebar_collapsed', String(sidebarCollapsed.value))
   }
 
   const toggleMobileSidebar = () => {

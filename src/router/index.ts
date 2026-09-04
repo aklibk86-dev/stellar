@@ -157,7 +157,7 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(window.routerBase || '/'),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior: (_to, _from, savedPosition) => savedPosition || { left: 0, top: 0 },
 })
 
 const loginRedirect = (redirect: string) => ({

@@ -2,7 +2,13 @@
   <div class="header-bar">
     <!-- 左侧:菜单按钮 + 页面标题 -->
     <div class="header-left">
-      <button class="menu-toggle-btn" @click="toggleSidebar">
+      <button
+        class="menu-toggle-btn"
+        type="button"
+        :aria-label="t('common.openNavigation')"
+        :aria-expanded="appStore.mobileSidebarOpen"
+        @click="toggleSidebar"
+      >
         <StellarIcon name="menu" :size="22" />
       </button>
       <h1 class="page-title">{{ currentTitle }}</h1>
@@ -14,14 +20,14 @@
       <NoticeBell />
 
       <!-- 主题切换 -->
-      <button class="header-btn" @click="appStore.toggleDark()" :title="appStore.isDark ? t('common.toggleLight') : t('common.toggleDark')">
+      <button class="header-btn" type="button" @click="appStore.toggleDark()" :title="appStore.isDark ? t('common.toggleLight') : t('common.toggleDark')" :aria-label="appStore.isDark ? t('common.toggleLight') : t('common.toggleDark')">
         <StellarIcon :name="appStore.isDark ? 'sun' : 'moon'" :size="20" />
       </button>
 
       <!-- 语言切换 -->
       <StellarDropdown :options="localeOptions" @select="handleLocaleChange">
         <template #trigger>
-          <button class="header-btn">
+          <button class="header-btn" type="button" :aria-label="locale === 'zh-CN' ? '简体中文 / English' : 'English / 简体中文'">
             <StellarIcon name="language" :size="20" />
           </button>
         </template>
@@ -30,13 +36,13 @@
       <!-- 用户头像/菜单 -->
       <StellarDropdown :options="userMenuOptions" @select="handleUserMenu">
         <template #trigger>
-          <div class="user-info">
+          <button type="button" class="user-info" :aria-label="userStore.user?.email || 'User'">
             <div class="user-avatar">
               <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" />
               <span v-else>{{ userStore.user?.email?.charAt(0).toUpperCase() || 'U' }}</span>
             </div>
             <span class="user-email hidden md:block">{{ userStore.user?.email || 'User' }}</span>
-          </div>
+          </button>
         </template>
       </StellarDropdown>
     </div>
@@ -120,6 +126,7 @@ const handleUserMenu = (key: string) => {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .header-right {
@@ -133,6 +140,9 @@ const handleUserMenu = (key: string) => {
   font-weight: 600;
   color: var(--stellar-text);
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-toggle-btn {
@@ -145,7 +155,7 @@ const handleUserMenu = (key: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.12s ease;
 }
 
 .menu-toggle-btn:hover {
@@ -168,7 +178,7 @@ const handleUserMenu = (key: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.12s ease;
 }
 
 .header-btn:hover {
@@ -189,10 +199,21 @@ const handleUserMenu = (key: string) => {
   padding: 4px 8px;
   border-radius: 8px;
   transition: background 0.2s;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
 }
 
 .user-info:hover {
   background: var(--stellar-bg-hover);
+}
+
+.menu-toggle-btn:focus-visible,
+.header-btn:focus-visible,
+.user-info:focus-visible {
+  outline: 2px solid var(--stellar-primary);
+  outline-offset: 2px;
 }
 
 .user-avatar {

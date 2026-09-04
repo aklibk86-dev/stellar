@@ -48,3 +48,6 @@ docs/
 
 # 内部文档目录（含部署/运营内部资料，不对外提交）
 /documentation/
+
+# 配置文件生成
+config-gen/

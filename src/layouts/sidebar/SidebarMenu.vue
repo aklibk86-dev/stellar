@@ -13,6 +13,8 @@
         :class="{ 'active': isActive(item.to) }"
         :title="appStore.sidebarCollapsed ? item.label : undefined"
         :aria-label="item.label"
+        @pointerenter="preloadRoute(item.to)"
+        @focus="preloadRoute(item.to)"
         @click="appStore.closeMobileSidebar()"
       >
         <span class="menu-icon">
@@ -44,15 +46,31 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import StellarIcon from '@/components/StellarIcon.vue'
 import { normalizeSidebarNavigation, type SidebarNavigationItem } from '@/utils/sidebarNavigation'
 
 const route = useRoute()
+const router = useRouter()
 const { t, locale } = useI18n()
 const appStore = useAppStore()
+const preloadedRoutes = new Set<string>()
+
+const preloadRoute = (path: string) => {
+  if (preloadedRoutes.has(path)) return
+  preloadedRoutes.add(path)
+  try {
+    const loaders = router.resolve(path).matched.flatMap((record) => Object.values(record.components || {}))
+    void Promise.allSettled(loaders.map((component) => (
+      typeof component === 'function' ? Promise.resolve((component as () => unknown)()) : Promise.resolve()
+    )))
+  } catch {
+    // Invalid custom navigation entries should remain clickable without affecting the app.
+    preloadedRoutes.delete(path)
+  }
+}
 
 const isActive = (path: string) => {
   return route.path === path || route.path.startsWith(`${path}/`)
@@ -108,7 +126,7 @@ const menuItems = computed(() => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.12s ease;
   position: relative;
   text-decoration: none;
 }
@@ -134,6 +152,11 @@ const menuItems = computed(() => {
   height: 20px;
   background: var(--stellar-primary);
   border-radius: 0 3px 3px 0;
+}
+
+.menu-item:focus-visible {
+  outline: 2px solid var(--stellar-primary);
+  outline-offset: -2px;
 }
 
 .menu-icon {

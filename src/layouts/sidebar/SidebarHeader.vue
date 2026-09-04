@@ -1,6 +1,6 @@
 <template>
   <div class="sidebar-header" :class="{ 'collapsed': appStore.sidebarCollapsed }">
-    <div class="logo-wrap" @click="goHome">
+    <div class="logo-wrap" role="button" tabindex="0" :aria-label="appStore.title" @click="goHome" @keydown.enter.prevent="goHome" @keydown.space.prevent="goHome">
       <img v-if="appStore.logo" :src="appStore.logo" alt="logo" class="logo-img" />
       <div v-else class="logo-placeholder">
         <svg viewBox="0 0 32 32" class="logo-icon">
@@ -54,6 +54,12 @@ const goHome = () => {
 
 .logo-wrap:hover {
   opacity: 0.8;
+}
+
+.logo-wrap:focus-visible {
+  outline: 2px solid var(--stellar-primary);
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
 .logo-img {
