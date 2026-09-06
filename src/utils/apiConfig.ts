@@ -57,16 +57,21 @@ export const shouldCheckApiAvailability = () => {
   if (config.proxy_enabled) return false
   if (config.check_enabled === false) return false
   if (config.url_mode !== 'static') return false
-  if (sessionStorage.getItem(STORAGE_KEY)) return false
   const urls = getStaticApiBaseUrls()
+  const stored = normalizeApiBaseUrl(sessionStorage.getItem(STORAGE_KEY) || '')
+  if (stored && urls.includes(stored)) return false
+  // A runtime config change must not keep routing requests to a stale backend.
+  if (stored) sessionStorage.removeItem(STORAGE_KEY)
   return urls.length > 1 && urls.some(url => /^https?:\/\//i.test(url))
 }
 
 export const getAvailableApiUrl = () => {
   if (typeof window === 'undefined') return ''
-  const stored = sessionStorage.getItem(STORAGE_KEY)
-  if (stored) return stored
-  return getStaticApiBaseUrls()[0] || ''
+  const urls = getStaticApiBaseUrls()
+  const stored = normalizeApiBaseUrl(sessionStorage.getItem(STORAGE_KEY) || '')
+  if (stored && urls.includes(stored)) return stored
+  if (stored) sessionStorage.removeItem(STORAGE_KEY)
+  return urls[0] || ''
 }
 
 export const setAvailableApiUrl = (url: string) => {

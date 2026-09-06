@@ -309,6 +309,20 @@ export function normalizeSubscribe(raw: any): Subscribe {
   } as Subscribe
 }
 
+/** Normalize backend feature flags that may arrive as numbers, strings, or booleans. */
+const normalizeBinaryFlag = (value: unknown, fallback = 0): 0 | 1 => {
+  if (typeof value === 'boolean') return value ? 1 : 0
+  if (typeof value === 'number') return Number.isFinite(value) && value !== 0 ? 1 : 0
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return 1
+    if (['', '0', 'false', 'no', 'off', 'null', 'undefined'].includes(normalized)) return 0
+    const numeric = Number(normalized)
+    if (Number.isFinite(numeric)) return numeric !== 0 ? 1 : 0
+  }
+  return fallback ? 1 : 0
+}
+
 /**
  * 归一化 guest config 字段
  * - xboard 使用 is_captcha / captcha_type / turnstile_site_key / recaptcha_v3_*
@@ -317,11 +331,15 @@ export function normalizeSubscribe(raw: any): Subscribe {
  */
 export function normalizeGuestConfig(raw: any): GuestConfig {
   if (!raw) return raw
-  const isCaptcha = raw.is_captcha ?? raw.is_recaptcha ?? 0
+  const isEmailVerify = normalizeBinaryFlag(raw.is_email_verify)
+  const isInviteForce = normalizeBinaryFlag(raw.is_invite_force)
+  const isCaptcha = normalizeBinaryFlag(raw.is_captcha ?? raw.is_recaptcha)
   return {
     ...raw,
+    is_email_verify: isEmailVerify,
+    is_invite_force: isInviteForce,
     is_captcha: isCaptcha,
-    is_recaptcha: raw.is_recaptcha ?? isCaptcha,
+    is_recaptcha: normalizeBinaryFlag(raw.is_recaptcha, isCaptcha),
     captcha_type: raw.captcha_type ?? 'recaptcha',
     turnstile_site_key: raw.turnstile_site_key ?? null,
     recaptcha_v3_site_key: raw.recaptcha_v3_site_key ?? null,

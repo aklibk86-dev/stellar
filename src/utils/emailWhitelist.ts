@@ -2,6 +2,10 @@
 export const getEmailWhitelistSuffixes = (value: unknown): string[] => {
   if (value === 0 || value === false || value === null || value === undefined) return []
 
+  if (typeof value === 'string' && ['0', 'false', 'none', 'null', 'undefined'].includes(value.trim().toLowerCase())) {
+    return []
+  }
+
   const values = Array.isArray(value)
     ? value
     : typeof value === 'string'

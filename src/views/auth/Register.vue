@@ -61,7 +61,7 @@
               <n-input v-model:value="formData.confirmPassword" type="password" :placeholder="t('auth.confirmPassword')" show-password-on="click" />
             </n-form-item>
 
-            <n-form-item v-if="guestConfig?.is_email_verify" path="email_code" :label="t('auth.emailCode')">
+            <n-form-item v-if="emailVerificationEnabled" path="email_code" :label="t('auth.emailCode')">
               <n-input-group>
                 <n-input v-model:value="formData.email_code" :placeholder="t('auth.emailCode')" />
                 <n-button :loading="codeLoading" :disabled="countdown > 0" @click="sendEmailCode">
@@ -131,6 +131,7 @@ const description = computed(() => appStore.description)
 // 此处不再重复渲染 auth 专属背景；仅在新背景未启用且旧 background_url 有值时保留原行为。
 const backgroundUrl = computed(() => (appStore.backgroundEnabled ? '' : appStore.backgroundUrl))
 const guestConfig = computed(() => userStore.guestConfig)
+const emailVerificationEnabled = computed(() => guestConfig.value?.is_email_verify === 1)
 const emailWhitelistSuffixes = computed(() => getEmailWhitelistSuffixes(guestConfig.value?.email_whitelist_suffix))
 const emailWhitelistEnabled = computed(() => emailWhitelistSuffixes.value.length > 0)
 const emailSuffixOptions = computed(() => emailWhitelistSuffixes.value.map((suffix) => ({
@@ -219,7 +220,7 @@ const rules = computed<FormRules>(() => ({
     },
   ],
   email_code: [
-    { required: guestConfig.value?.is_email_verify === 1, message: t('auth.emailCode'), trigger: 'blur' },
+    { required: emailVerificationEnabled.value, message: t('auth.emailCode'), trigger: 'blur' },
   ],
   invite_code: [
     { required: guestConfig.value?.is_invite_force === 1, message: t('auth.inviteCode'), trigger: 'blur' },
