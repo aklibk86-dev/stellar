@@ -1,5 +1,22 @@
 <template>
   <div class="servers-page">
+    <div v-if="subscriptionLoading" class="access-loading">
+      <span class="access-loading-dot" />
+      <span>{{ t('common.loading') }}</span>
+    </div>
+
+    <div v-else-if="!hasSubscription" class="subscription-required">
+      <svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18M8 15h3M16 13v-2a2 2 0 0 0-4 0v2M11 13h6v5h-6z" />
+      </svg>
+      <p>{{ t('server.subscriptionRequired') }}</p>
+      <button class="buy-plan-btn" type="button" @click="goToPlans">
+        {{ t('server.purchasePlan') }}
+      </button>
+    </div>
+
+    <template v-else>
     <!-- 页面头部:标题 + 搜索 -->
     <div class="page-header">
       <div class="header-text">
@@ -113,22 +130,40 @@
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useMessage, NInput } from 'naive-ui'
+import { useMessage, useDialog, NInput } from 'naive-ui'
 import { userApi, normalizeServers } from '@/api'
 import type { Server } from '@/api/types'
+import { useUserStore } from '@/stores/user'
 
+const router = useRouter()
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
+const userStore = useUserStore()
 
 const loading = ref(true)
+const subscriptionLoading = ref(true)
 const searchKeyword = ref('')
 const serversByType = ref<Record<string, Server[]>>({})
+
+const hasSubscription = computed(() => {
+  const currentUser = userStore.user
+  const planId = Number(currentUser?.plan_id)
+  if (!currentUser || !Number.isFinite(planId) || planId <= 0) return false
+
+  const expiresAt = currentUser.expired_at
+  if (expiresAt === null || expiresAt === undefined) return true
+  const timestamp = Number(expiresAt)
+  return timestamp === 0 || (Number.isFinite(timestamp) && timestamp >= Math.floor(Date.now() / 1000))
+})
 
 const serverStats = computed(() => {
   const all: Server[] = []
@@ -193,6 +228,20 @@ const typeIconStyle = (tp: string) => {
   return map[tp] || 'background: rgba(148,163,184,0.15); color: #94a3b8;'
 }
 
+const goToPlans = () => {
+  router.push({ name: 'plans' })
+}
+
+const showSubscriptionDialog = () => {
+  dialog.warning({
+    title: t('server.subscriptionDialogTitle'),
+    content: t('server.subscriptionDialogContent'),
+    positiveText: t('server.purchasePlan'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: goToPlans,
+  })
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -205,7 +254,19 @@ const fetchData = async () => {
   }
 }
 
-onMounted(fetchData)
+onMounted(async () => {
+  try {
+    await userStore.fetchUser(true)
+    if (hasSubscription.value) {
+      await fetchData()
+    } else {
+      loading.value = false
+      showSubscriptionDialog()
+    }
+  } finally {
+    subscriptionLoading.value = false
+  }
+})
 </script>
 
 <style scoped>
@@ -492,6 +553,52 @@ onMounted(fetchData)
 }
 
 /* ===== 空状态 ===== */
+.access-loading,
+.subscription-required {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--stellar-text-muted);
+  text-align: center;
+  background: var(--stellar-bg-card);
+  border: 1px solid var(--stellar-border);
+  border-radius: 12px;
+}
+.access-loading {
+  flex-direction: row;
+  gap: 8px;
+  min-height: 220px;
+  font-size: 13px;
+}
+.access-loading-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--stellar-border);
+  border-top-color: var(--stellar-primary);
+  border-radius: 50%;
+  animation: server-access-spin 0.8s linear infinite;
+}
+@keyframes server-access-spin {
+  to { transform: rotate(360deg); }
+}
+.subscription-required {
+  gap: 14px;
+  padding: 88px 20px;
+}
+.subscription-required svg { color: var(--stellar-primary); opacity: 0.8; }
+.subscription-required p { margin: 0; font-size: 14px; }
+.buy-plan-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 18px;
+  background: var(--stellar-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.buy-plan-btn:hover { filter: brightness(1.08); }
 .empty-state {
   display: flex;
   flex-direction: column;

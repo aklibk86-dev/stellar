@@ -267,6 +267,10 @@ const messages = {
       copyLink: '复制链接',
       ping: '延迟',
       latency: '延迟',
+      subscriptionRequired: '请先购买套餐后查看线路',
+      purchasePlan: '前往购买套餐',
+      subscriptionDialogTitle: '需要购买套餐',
+      subscriptionDialogContent: '购买套餐后即可查看可用服务线路。',
     },
     plan: {
       title: '套餐选择',
@@ -910,6 +914,10 @@ const messages = {
       copyLink: 'Copy Link',
       ping: 'Ping',
       latency: 'Latency',
+      subscriptionRequired: 'Please purchase a plan before viewing service routes.',
+      purchasePlan: 'Purchase a plan',
+      subscriptionDialogTitle: 'Plan required',
+      subscriptionDialogContent: 'Purchase a plan to access the available service routes.',
     },
     plan: {
       title: 'Plans',
