@@ -79,7 +79,7 @@
 import { ref, reactive, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useMessage, type FormInst, type FormRules } from 'naive-ui'
+import { useMessage, useDialog, type FormInst, type FormRules } from 'naive-ui'
 import { useAppStore } from '@/stores/app'
 import { passportApi } from '@/api'
 
@@ -87,6 +87,7 @@ const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const appStore = useAppStore()
 
 const formRef = ref<FormInst | null>(null)
@@ -154,7 +155,14 @@ const sendEmailCode = async () => {
   codeLoading.value = true
   try {
     await passportApi.sendEmailVerify(formData.email)
-    message.success(t('auth.emailCodeSent'))
+    dialog.success({
+      title: t('auth.resetCodeSentTitle'),
+      content: t('auth.resetCodeSentContent'),
+      positiveText: t('auth.resetCodeSentConfirm'),
+      closable: false,
+      maskClosable: false,
+      closeOnEsc: false,
+    })
     countdown.value = 60
     timer = setInterval(() => { countdown.value--; if (countdown.value <= 0 && timer) { clearInterval(timer); timer = null } }, 1000)
   } catch (err: any) { message.error(err.message || t('common.failed')) } finally { codeLoading.value = false }
