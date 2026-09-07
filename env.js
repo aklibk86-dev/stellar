@@ -47,7 +47,7 @@ window.settings = {
   // 背景图片 URL（留空用默认）
   // 注意：此字段为旧版配置，仅用于 auth 页面背景，已由下方 background 配置取代。
   // 若同时配置了 background.enabled，将以 background 为准。
-  background_url: '',
+  background_url: 'https://www.helloimg.com/i/2026/09/07/6a9dccf83772e.jpg',
 
   // Logo URL（留空用项目默认图标）
   logo: '',
@@ -235,7 +235,7 @@ window.settings = {
     url: '',
 
     // 电脑端壁纸 URL（视口宽度大于 767px 时优先使用）
-    desktop_url: '',
+    desktop_url: 'https://www.helloimg.com/i/2026/09/07/6a9dccf83772e.jpg',
 
     // 手机端壁纸 URL（视口宽度小于等于 767px 时优先使用）
     mobile_url: '',
