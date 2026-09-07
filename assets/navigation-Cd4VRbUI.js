@@ -1,0 +1,1 @@
+function r(e){if(!e)return!1;try{const t=decodeURIComponent(e).replace(/\\/g,"/");return t.startsWith("/")&&!t.startsWith("//")}catch{return!1}}function n(e,t="/dashboard"){return e&&r(e)?e:t}export{n as g};

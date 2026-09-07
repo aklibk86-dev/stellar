@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- 注意：frame-ancestors 只能通过 HTTP 响应头生效（meta 中会被浏览器忽略并告警），
+       生产部署请在服务器响应头补充：Content-Security-Policy: frame-ancestors 'none'（见部署文档） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:;" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+  <title>Loading...</title>
+  <style>
+    .stellar-page-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0d1119;
+    }
+    .stellar-page-loader__spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(148, 163, 184, 0.22);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: stellar-loader-spin 0.75s linear infinite;
+    }
+    .stellar-page-loader-fade-enter-active,
+    .stellar-page-loader-fade-leave-active {
+      transition: opacity 0.18s ease;
+    }
+    .stellar-page-loader-fade-enter-from,
+    .stellar-page-loader-fade-leave-to {
+      opacity: 0;
+    }
+    @keyframes stellar-loader-spin {
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .stellar-page-loader__spinner { animation-duration: 1.5s; }
+    }
+  </style>
+  <script>
+    // 提前初始化默认配置，防止 env.js 加载失败导致白屏
+    window.routerBase = window.routerBase || '/'
+    window.settings = window.settings || {
+      title: 'Stellar',
+      description: 'Stellar Panel',
+      assets_path: '/assets',
+      theme: { color: 'default' },
+      version: '1.0.0',
+      background_url: '',
+      logo: '',
+      avatar_source: '',
+      header_code: '',
+      footer_code: '',
+      landing_theme_mode: 'dark',
+      stock_display_style: 'balanced',
+      landing_navigation: { items: null },
+      landing_hero: { features: [] },
+      sidebar_navigation: { items: null },
+      telegram_group: '',
+      api_error_contact: '',
+      api: {
+                     url_mode: 'static',
+                     // 兜底占位地址：正式配置以 public/env.js 为准（env.js 缺失时由 prebuild 从模板复制）
+                     static_base_urls: ['https://xboard.wf1.one'],
+        auto: { use_same_protocol: true, host: '', append_path: '' },
+        check_enabled: false,
+        check_path: '/api/v1/guest/comm/config',
+        proxy_enabled: false,
+        proxy_url: '',
+        proxy_path: '/api-proxy',
+                     proxy_mode: 'base64Path',
+                     backend_type: 'xboard'
+      },
+      background: {
+        enabled: false,
+        type: 'image',
+        url: '',
+        desktop_url: '',
+        mobile_url: '',
+        poster: '',
+        overlay_opacity: 0.35,
+        overlay_color: '#000000',
+        video_autoplay: true,
+        video_loop: true,
+        video_muted: true
+      },
+      glassmorphism: {
+        enabled: false,
+        blur: 12,
+        opacity: 0.65,
+        border_style: 'light',
+        border_color: 'rgba(255, 255, 255, 0.18)',
+        border_width: 1,
+        radius: 12
+      },
+      knowledge_sidebar_style: 'list',
+      // 默认不要求订阅即可查看文档（登录即可）；需要关闭时在 env.js 中设为 true
+      knowledge_require_subscription: false
+    }
+    document.title = window.settings.title || 'Stellar'
+  </script>
+  <script src="./env.js"></script>
+  <script type="module" crossorigin src="./assets/stellar.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-C-z4KtI8.css">
+</head>
+<body>
+  <div id="app">
+    <div class="stellar-page-loader" role="status" aria-label="加载中">
+      <span class="stellar-page-loader__spinner" aria-hidden="true"></span>
+    </div>
+  </div>
+</body>
+</html>
