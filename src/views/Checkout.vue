@@ -130,18 +130,22 @@
               <span class="summary-label">{{ t('plan.originalPrice') }}</span>
               <span class="summary-value">¥{{ formatPrice(originalPrice) }}</span>
             </div>
-            <div v-if="couponDiscount > 0" class="summary-row discount">
-              <span class="summary-label">{{ t('plan.couponDiscount') }}</span>
-              <span class="summary-value">-¥{{ formatPrice(couponDiscount) }}</span>
+            <div v-if="displayDiscount > 0" class="summary-row discount">
+              <span class="summary-label">{{ orderDetail ? t('order.discount') : t('plan.couponDiscount') }}</span>
+              <span class="summary-value">-¥{{ formatPrice(displayDiscount) }}</span>
             </div>
             <template v-if="orderDetail">
-              <div v-if="orderDetail.surplus_amount > 0" class="summary-row discount">
+              <div v-if="appliedSurplus > 0" class="summary-row discount">
                 <span class="summary-label">{{ t('order.surplusDiscount') }}</span>
-                <span class="summary-value">-¥{{ formatPrice(orderDetail.surplus_amount) }}</span>
+                <span class="summary-value">-¥{{ formatPrice(appliedSurplus) }}</span>
               </div>
               <div v-if="orderDetail.balance_amount > 0" class="summary-row discount">
                 <span class="summary-label">{{ t('order.balanceDiscount') }}</span>
                 <span class="summary-value">-¥{{ formatPrice(orderDetail.balance_amount) }}</span>
+              </div>
+              <div v-if="surplusCredit > 0" class="summary-row">
+                <span class="summary-label">{{ t('order.surplusCredit') }}</span>
+                <span class="summary-value">¥{{ formatPrice(surplusCredit) }}</span>
               </div>
             </template>
             <div v-if="paymentHandlingFee > 0" class="summary-row">
@@ -149,10 +153,14 @@
               <span class="summary-value">¥{{ formatPrice(paymentHandlingFee) }}</span>
             </div>
             <div class="summary-row total">
-              <span class="summary-label">{{ t('plan.finalPrice') }}</span>
+              <span class="summary-label">{{ !orderDetail && isPlanChange ? t('order.estimatedPrice') : t('plan.finalPrice') }}</span>
               <span class="summary-value price-final">¥{{ formatPrice(displayFinalPrice) }}</span>
             </div>
           </div>
+
+          <n-alert v-if="!existingTradeNo && isPlanChange" type="info" :show-icon="true" class="payment-error">
+            {{ t('order.planChangeCreditHint') }}
+          </n-alert>
 
           <!-- 余额/套餐折抵提示：参考 EZ_THEME，在后端订单详情返回后展示真实抵扣结果 -->
           <n-alert v-if="existingTradeNo && actualPayAmount === 0" type="success" :show-icon="true" class="payment-error">
@@ -187,7 +195,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, NButton, NInput, NSkeleton, NAlert } from 'naive-ui'
 import { userApi } from '@/api'
-import type { Plan, PaymentMethod, Coupon } from '@/api/types'
+import type { Plan, PaymentMethod, Coupon, Order, Subscribe } from '@/api/types'
+import { getBackendType } from '@/utils/backend'
 import { formatPrice } from '@/utils/format'
 import { getPlanStockDisplayInfo } from '@/utils/plan'
 import { renderRichContent } from '@/utils/safe'
@@ -211,7 +220,8 @@ const submitting = ref(false)
 const selectedPeriod = ref('')
 const selectedPayment = ref<number | string | null>(null)
 const existingTradeNo = ref<string>('')  // 已创建订单的 trade_no
-const orderDetail = ref<any | null>(null)
+const orderDetail = ref<(Order & { surplus_credit?: number }) | null>(null)
+const currentSubscription = ref<Subscribe | null>(null)
 const paymentMethods = ref<PaymentMethod[]>([])
 const excludedStripeCredit = ref(false)
 const paymentError = ref('')
@@ -224,6 +234,14 @@ const couponData = ref<Coupon | null>(null)
 
 const hasSelectedPayment = computed(() => selectedPayment.value !== null && selectedPayment.value !== '')
 const actualPayAmount = computed(() => orderDetail.value ? Number(orderDetail.value.total_amount || 0) : finalPrice.value)
+const isPlanChange = computed(() => {
+  const subscription = currentSubscription.value
+  return getBackendType() === 'xboard' && !!plan.value && !!subscription?.plan_id
+    && subscription.plan_id !== plan.value.id
+    && (subscription.expired_at === null || subscription.expired_at > Date.now() / 1000)
+})
+const surplusCredit = computed(() => Math.max(0, Number(orderDetail.value?.surplus_credit || 0)))
+const appliedSurplus = computed(() => Math.max(0, Number(orderDetail.value?.surplus_amount || 0) - surplusCredit.value))
 
 // 套餐库存徽标文案与风格统一由库存工具生成
 const planStockBadge = computed(() => {
@@ -300,6 +318,9 @@ const couponDiscount = computed(() => {
   }
   return couponData.value.value
 })
+const displayDiscount = computed(() => orderDetail.value
+  ? Number(orderDetail.value.discount_amount || 0)
+  : couponDiscount.value)
 
 // 最终价格
 const finalPrice = computed(() => Math.max(0, originalPrice.value - couponDiscount.value))
@@ -467,7 +488,11 @@ const fetchData = async () => {
 
   try {
     // 获取套餐列表，找到目标套餐
-    const plansRes = await userApi.getPlans()
+    const [plansRes, subscriptionRes] = await Promise.all([
+      userApi.getPlans(),
+      getBackendType() === 'xboard' ? userApi.getSubscribe().catch(() => null) : Promise.resolve(null),
+    ])
+    currentSubscription.value = subscriptionRes?.data || null
     plan.value = (plansRes.data || []).find(p => p.id === planId) || null
     if (!plan.value) {
       loading.value = false

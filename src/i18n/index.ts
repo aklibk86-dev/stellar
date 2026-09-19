@@ -411,6 +411,9 @@ const messages = {
       freeOrderTip: '该订单已通过余额或套餐折抵抵扣为 0 元，点击激活后将直接开通。',
       balanceDiscount: '余额抵扣',
       surplusDiscount: '套餐折抵',
+      surplusCredit: '超额折抵（开通后返还余额）',
+      estimatedPrice: '预计金额',
+      planChangeCreditHint: '切换套餐时，若后台启用了折抵，旧套餐剩余价值将在提交订单后自动计算。请在支付前核对实际金额。',
     },
     ticket: {
       title: '工单中心',
@@ -1058,6 +1061,9 @@ const messages = {
       freeOrderTip: 'This order has been reduced to 0 by balance or plan credit. Click activate to complete it.',
       balanceDiscount: 'Balance Deduction',
       surplusDiscount: 'Plan Credit',
+      surplusCredit: 'Excess credit (returned on activation)',
+      estimatedPrice: 'Estimated amount',
+      planChangeCreditHint: 'When changing plans, any enabled credit for the remaining value of your current plan is calculated after placing the order. Review the actual amount before paying.',
     },
     ticket: {
       title: 'Tickets',
