@@ -373,30 +373,63 @@ export function detectBackendFromGuestConfig(config: any): 'xboard' | 'v2board' 
 }
 
 /**
+ * 归一化周期字段：把后端可能返回的新版周期（monthly）转成前端使用的旧版键（month_price）
+ * Xboard 的 v2_coupon.limit_period 存新版周期（monthly/yearly），
+ * 经 CouponResource 的 convertToLegacyPeriod 转换后返回旧版键；
+ * v2board 直接存旧版键。两处都做一次归一，保证比较时格式一致。
+ */
+export function normalizeCouponPeriod(period: string): string {
+  const map: Record<string, string> = {
+    monthly: 'month_price',
+    quarterly: 'quarter_price',
+    half_yearly: 'half_year_price',
+    yearly: 'year_price',
+    two_yearly: 'two_year_price',
+    three_yearly: 'three_year_price',
+    onetime: 'onetime_price',
+    reset_traffic: 'reset_price',
+  }
+  return map[period] || period
+}
+
+/**
  * 归一化优惠券字段
- * - xboard: type='fixed'|'percentage', percentage 的 value 为小数（如 0.2 表示 20%）
- * - v2board: type=1|2, percentage 的 value 为整数（如 20 表示 20%）
- * 统一输出: type 为字符串，percentage 的 value 为小数
+ *
+ * 后端契约（Xboard 与 v2board 一致）：
+ * - v2_coupon.type 是**整数**：1=固定金额，2=百分比
+ * - 固定金额（type=1）的 value 单位为**分**；折扣直接作用于订单 total_amount（也是分）
+ * - 百分比（type=2）的 value 为**整数百分比**，后端按 value/100 计算
+ *
+ * 统一输出（供前端使用）：
+ * - type 为字符串 'fixed' | 'percentage'
+ * - fixed 的 value 保留为**分**（与 formatPrice / 订单金额单位一致）
+ * - percentage 的 value 归一为**小数**（如 20 → 0.2）
  */
 export function normalizeCoupon(raw: any): Coupon {
   if (!raw) return raw
-  const backendType = getBackendType()
 
-  // v2board: type 是数字 (1=固定金额, 2=百分比)
-  if (backendType === 'v2board' || typeof raw.type === 'number') {
-    const isPercentage = raw.type === 2
-    return {
-      ...raw,
-      type: isPercentage ? 'percentage' : 'fixed',
-      // v2board 的 percentage value 是整数（如 20），需要转换为小数（如 0.2）
-      value: isPercentage && raw.value > 1 ? raw.value / 100 : raw.value,
-    } as Coupon
-  }
+  // 兼容极少数后端以字符串返回 type 的情况：'percentage' / 'fixed' / '2' / '1'
+  const rawType = raw.type
+  const isPercentage = rawType === 2
+    || rawType === '2'
+    || String(rawType).toLowerCase() === 'percentage'
 
-  // xboard: type 是字符串，percentage 的 value 已经是小数
+  const rawValue = Number(raw.value) || 0
+
   return {
     ...raw,
-    type: raw.type === 'percentage' ? 'percentage' : 'fixed',
-    value: raw.value,
+    type: isPercentage ? 'percentage' : 'fixed',
+    // 固定金额保持分不变；百分比统一转成小数。
+    // 注意：百分比恒除以 100，不依赖 "value > 1" 的启发式判断，
+    // 否则 1% 的券会被误判为 1（即 100% 折扣）。
+    value: isPercentage ? rawValue / 100 : rawValue,
+    // limit_period 归一为旧版周期键，便于与前端 selectedPeriod 直接比较
+    limit_period: Array.isArray(raw.limit_period)
+      ? raw.limit_period.map((p: string) => normalizeCouponPeriod(String(p)))
+      : raw.limit_period ?? null,
+    // limit_plan_ids 统一为数字数组（后端返回字符串数组）
+    limit_plan_ids: Array.isArray(raw.limit_plan_ids)
+      ? raw.limit_plan_ids.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id))
+      : null,
   } as Coupon
 }

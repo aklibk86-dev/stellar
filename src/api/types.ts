@@ -260,18 +260,21 @@ export interface Notice {
 }
 
 // 优惠券
+// 单位约定：fixed 的 value 为分（与订单金额一致）；percentage 的 value 为小数（0.2 = 20%）
 export interface Coupon {
+  id?: number
   code: string
   name: string
   type: 'fixed' | 'percentage'  // 统一格式：fixed=固定金额, percentage=百分比
-  value: number  // percentage 时为小数（如 0.2 表示 20%）
+  value: number  // fixed 单位为分；percentage 为小数（如 0.2 表示 20%）
+  show?: number
   limit_use: number | null
   limit_use_with_user: number | null
   limit_period: string[] | null
-  limit_plan: number[] | null
+  limit_plan_ids: number[] | null
   started_at: number | null
   ended_at: number | null
-  use_count: number
+  use_count?: number
 }
 
 // 流量日志

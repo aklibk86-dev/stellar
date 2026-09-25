@@ -198,8 +198,15 @@ export const userApi = {
   getServers: () => http.get<Record<string, Server[]>>(paths().serverFetch),
 
   // 优惠券
-  checkCoupon: (code: string) =>
-    http.post<Coupon>(paths().couponCheck, { code }),
+  // Xboard 的 CouponService::check() 会在限定时校验套餐与周期，
+  // 因此必须透传 plan_id / period，否则后端会跳过 limit_plan_ids / limit_period 校验，
+  // 导致"校验通过但下单失败"。period 传前端使用的旧版周期键，后端会自行转换。
+  checkCoupon: (code: string, planId?: number, period?: string) =>
+    http.post<Coupon>(paths().couponCheck, {
+      code,
+      ...(planId ? { plan_id: planId } : {}),
+      ...(period ? { period } : {}),
+    }),
 
   // 知识库 - xboard 后端需要 language 参数(zh-CN)才能返回对应语言文档
   getKnowledgeCategories: () =>

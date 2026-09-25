@@ -50,7 +50,7 @@
               :key="item.period"
               class="period-item"
               :class="{ active: selectedPeriod === item.period }"
-              @click="selectedPeriod = item.period"
+              @click="selectPeriod(item.period)"
             >
               <div class="period-radio" :class="{ checked: selectedPeriod === item.period }"></div>
               <div class="period-info">
@@ -76,13 +76,49 @@
               :type="couponApplied ? 'success' : 'primary'"
               :disabled="!couponCode || couponApplied"
               :loading="couponLoading"
-              @click="applyCoupon"
+              @click="applyCoupon()"
             >
               {{ couponApplied ? t('plan.couponApplied') : t('plan.couponApply') }}
             </n-button>
             <n-button v-if="couponApplied" quaternary @click="resetCoupon">
               {{ t('common.cancel') }}
             </n-button>
+          </div>
+
+          <!-- 优惠券约束信息：帮助用户在提交前了解适用范围 -->
+          <div v-if="couponApplied && couponData" class="coupon-detail">
+            <div v-if="couponData.name" class="coupon-detail-row">
+              <span class="coupon-detail-label">{{ t('plan.couponName') }}</span>
+              <span class="coupon-detail-value">{{ couponData.name }}</span>
+            </div>
+            <div class="coupon-detail-row">
+              <span class="coupon-detail-label">{{ t('plan.couponDiscount') }}</span>
+              <span class="coupon-detail-value highlight">
+                {{ couponData.type === 'percentage'
+                  ? t('plan.couponPercentOff', { percent: formatPercent(couponData.value) })
+                  : t('plan.couponAmountOff', { amount: formatPrice(effectiveCouponDiscount) }) }}
+              </span>
+            </div>
+            <div v-if="couponRemainingUses !== null" class="coupon-detail-row">
+              <span class="coupon-detail-label">{{ t('plan.couponRemaining') }}</span>
+              <span class="coupon-detail-value">{{ t('plan.couponRemainingValue', { count: couponRemainingUses }) }}</span>
+            </div>
+            <div v-if="couponData.started_at || couponData.ended_at" class="coupon-detail-row">
+              <span class="coupon-detail-label">{{ t('plan.couponValidity') }}</span>
+              <span class="coupon-detail-value">
+                {{ couponData.started_at ? formatDate(couponData.started_at) : t('plan.couponNoLimit') }}
+                ~
+                {{ couponData.ended_at ? formatDate(couponData.ended_at) : t('plan.couponNoLimit') }}
+              </span>
+            </div>
+            <div v-if="couponPeriodLabels.length" class="coupon-detail-row">
+              <span class="coupon-detail-label">{{ t('plan.couponLimitPeriod') }}</span>
+              <span class="coupon-detail-value">{{ couponPeriodLabels.join(' / ') }}</span>
+            </div>
+            <div v-if="couponData.limit_use_with_user" class="coupon-detail-row">
+              <span class="coupon-detail-label">{{ t('plan.couponLimitPerUser') }}</span>
+              <span class="coupon-detail-value">{{ t('plan.couponLimitPerUserValue', { count: couponData.limit_use_with_user }) }}</span>
+            </div>
           </div>
         </div>
 
@@ -197,7 +233,7 @@ import { useMessage, NButton, NInput, NSkeleton, NAlert } from 'naive-ui'
 import { userApi } from '@/api'
 import type { Plan, PaymentMethod, Coupon, Order, Subscribe } from '@/api/types'
 import { getBackendType } from '@/utils/backend'
-import { formatPrice } from '@/utils/format'
+import { formatPrice, formatDate } from '@/utils/format'
 import { getPlanStockDisplayInfo } from '@/utils/plan'
 import { renderRichContent } from '@/utils/safe'
 import { normalizeCoupon } from '@/utils/backend'
@@ -309,21 +345,27 @@ const originalPrice = computed(() => {
   return (plan.value[config.field] as number) || 0
 })
 
-// 优惠折扣
+// 优惠折扣（单位：分，与 originalPrice / formatPrice 保持一致）
 const couponDiscount = computed(() => {
   if (!couponData.value || !originalPrice.value) return 0
   if (couponData.value.type === 'percentage') {
     // 经过 normalizeCoupon 处理后，value 统一为小数（如 0.2 表示 20%）
+    // 与后端 CouponService 一致：折扣 = 总额 * 比例，且不超过总额
     return Math.floor(originalPrice.value * couponData.value.value)
   }
+  // 固定金额券的 value 单位为分，与 originalPrice 同单位，直接使用
   return couponData.value.value
 })
+
+// 优惠券折扣上限为订单原价（后端 CouponService::use 同样做了封顶）
+const effectiveCouponDiscount = computed(() =>
+  Math.min(couponDiscount.value, originalPrice.value))
 const displayDiscount = computed(() => orderDetail.value
   ? Number(orderDetail.value.discount_amount || 0)
-  : couponDiscount.value)
+  : effectiveCouponDiscount.value)
 
 // 最终价格
-const finalPrice = computed(() => Math.max(0, originalPrice.value - couponDiscount.value))
+const finalPrice = computed(() => Math.max(0, originalPrice.value - effectiveCouponDiscount.value))
 
 // 获取周期标签
 const getPeriodLabel = (period: string): string => {
@@ -332,15 +374,22 @@ const getPeriodLabel = (period: string): string => {
 }
 
 // 应用优惠码
-const applyCoupon = async () => {
+// silent=true 用于套餐/周期变化后的静默重校验，失败时不弹错误提示
+const applyCoupon = async (silent = false) => {
   if (!couponCode.value) return
-  couponLoading.value = true
+  if (!selectedPeriod.value || !plan.value) {
+    if (!silent) message.warning(t('plan.couponSelectPeriodFirst'))
+    return
+  }
+  if (!silent) couponLoading.value = true
   try {
-    const res = await userApi.checkCoupon(couponCode.value)
+    // 必须透传 plan_id / period：Xboard 后端依赖它们校验
+    // limit_plan_ids / limit_period，缺失时会跳过这两项校验。
+    const res = await userApi.checkCoupon(couponCode.value, plan.value.id, selectedPeriod.value)
     // 使用 normalizeCoupon 统一处理不同后端的优惠券格式
     couponData.value = normalizeCoupon(res.data)
     couponApplied.value = true
-    message.success(t('plan.couponApplied'))
+    if (!silent) message.success(t('plan.couponApplied'))
   } catch (err: any) {
     message.error(err?.message || t('plan.couponInvalid'))
     couponApplied.value = false
@@ -354,6 +403,38 @@ const resetCoupon = () => {
   couponCode.value = ''
   couponApplied.value = false
   couponData.value = null
+}
+
+// 套餐或周期变化后，已应用的优惠券可能因 limit_plan_ids / limit_period 失效，
+// 因此需要重新校验；失败时自动清除，避免"前端显示可用、下单被后端拒绝"。
+const revalidateCoupon = () => {
+  if (!couponApplied.value || !couponCode.value) return
+  void applyCoupon(true)
+}
+
+// 切换周期（仅新建订单可切换）
+const selectPeriod = (period: string) => {
+  if (selectedPeriod.value === period) return
+  selectedPeriod.value = period
+  revalidateCoupon()
+}
+
+// 优惠券约束信息（用于结算页展示）
+const couponPeriodLabels = computed(() => {
+  const periods = couponData.value?.limit_period
+  if (!periods || periods.length === 0) return []
+  return periods.map(p => getPeriodLabel(p))
+})
+const couponRemainingUses = computed(() => {
+  const limit = couponData.value?.limit_use
+  if (limit === null || limit === undefined) return null
+  return limit
+})
+
+// 百分比券的 value 已归一为小数（0.2），展示时转回百分数并去掉多余小数位
+const formatPercent = (value: number): string => {
+  const percent = value * 100
+  return `${Number.isInteger(percent) ? percent : percent.toFixed(2)}%`
 }
 
 const loadCreatedOrder = async (tradeNo: string) => {
@@ -615,6 +696,12 @@ onMounted(fetchData)
 
 /* 优惠码 */
 .coupon-row { display: flex; gap: 8px; }
+/* 优惠券约束信息 */
+.coupon-detail { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--stellar-bg-hover); display: flex; flex-direction: column; gap: 8px; }
+.coupon-detail-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; font-size: 12px; }
+.coupon-detail-label { color: var(--stellar-text-muted); flex-shrink: 0; }
+.coupon-detail-value { color: var(--stellar-text-secondary); text-align: right; }
+.coupon-detail-value.highlight { color: var(--stellar-success); font-weight: 600; }
 
 /* 支付方式 */
 .no-payment { padding: 20px; text-align: center; color: var(--stellar-text-muted); font-size: 13px; }
